@@ -3,13 +3,13 @@ End-to-end bulk RNA-seq pipeline from experimental design, RNA sample collection
 
 ## Background
 <div style='text-align: right;'>
-<p>The trace element Manganese (Mn) is involved in key biochemical reactions central to normal cellular and systemic function. 
+<p style='text-align: right;'>The trace element Manganese (Mn) is involved in key biochemical reactions central to normal cellular and systemic function. 
 Like other trace metals, its cellular and systemic concentration is tightly regulated, mainly through dietary absorption 
 and excretion via GI Track and hepatobiliary routes. Mn-driven neurotoxicity is implicated in neurodegenerative diseases 
 such as Parkinson's, but the mechanisms remain elusive. Mitochondrial dysfunction, disturbed calcium physiology, and 
 oxidative stress are potential pathways involved in Mn overload. </p>
 
-<p>
+<p style='text-align: right;'>
 The influx transporters SLC39A14/8 and efflux SLC30A10 have higher Mn transportation preferences and are central to Mn 
 homeostasis. Using a loss of function mutation of slc39a14<sup>-/-</sup>
 compared to its slc39a14<sup>+/+</sup> controls in a zebrafish, Tuschl et al. (2020) recreated Mn overload in the brain 
