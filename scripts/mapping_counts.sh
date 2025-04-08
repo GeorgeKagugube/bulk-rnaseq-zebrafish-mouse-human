@@ -39,6 +39,9 @@ build_index = """STAR --runMode genomeGenerate \
 	 --runThreadN ${NSLOTS}
 	 """
 
+## Run Python call 
+sb.run([build_index], shell=True)
+
 ## Run the first pass STAR
 ## run star alignment on the assembly here 
 round1 = """STAR --runThreadN ${NSLOTS} \
