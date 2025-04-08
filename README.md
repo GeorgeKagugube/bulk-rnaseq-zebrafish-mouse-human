@@ -26,6 +26,3 @@ The pipelines shared here were used to analyse the transcriptome landscape of sl
 
 ## Project Pipeline
 # ![Workflow](https://github.com/GeorgeKagugube/bulk-rnaseq-zebrafish-mouse-human/blob/main/images/RNA%20ANALYSIS%20WORKFLOW.jpeg)
-
-
-## Implementation
