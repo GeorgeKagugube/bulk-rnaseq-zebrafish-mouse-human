@@ -2,7 +2,7 @@
 End-to-end bulk RNA-seq pipeline from experimental design, RNA sample collection, and analysis pipeline, including raw FASTQ files QC to differential gene expression, GO term, and Pathway analysis.
 
 ## Background
-<dev style='text-align: right;'>The trace element Manganese (Mn) is involved in key biochemical reactions central to normal cellular and systemic function. 
+<div style='text-align: right;'>The trace element Manganese (Mn) is involved in key biochemical reactions central to normal cellular and systemic function. 
 Like other trace metals, its cellular and systemic concentration is tightly regulated, mainly through dietary absorption 
 and excretion via GI Track and hepatobiliary routes. Mn-driven neurotoxicity is implicated in neurodegenerative diseases 
 such as Parkinson's, but the mechanisms remain elusive. Mitochondrial dysfunction, disturbed calcium physiology, and 
