@@ -20,13 +20,12 @@ lapply(requiredPackages, library, character.only=TRUE)
 ################### Functions start from here. #################################
 ################################################################################
 ## Function to perform data normalisation 
+#' @description Computes normalised count matrix of the input data
+#' 
+#' Parameters
+#' _________________________
+#' @param data_obj: A dataframe that is output from function x from STAR aligner.
 normalisation_func = function(data_obj){
-  #' @description Computes normalised count matrix of the input data
-  #' 
-  #' Parameters
-  #' _________________________
-  #' @param data_obj: A dataframe that is output from function x from STAR aligner.
-  
   norm_data = counts(estimateSizeFactors(data_obj), normalized = T)
   
   return(norm_data)
