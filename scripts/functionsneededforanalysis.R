@@ -82,6 +82,13 @@ normalisation_func = function(data_obj){
   return(norm_data)
 }
 
+## Transform normalised data for visualisation here 
+principle_component = function (data){
+  rld_data <- rlog(data, blind = T)
+  pca = prcomp(t(assay(rld_data)))
+  return(pca)
+}
+
 data_heatmap <- function(normalised_data, sample){
   sig_df <- sig_gene(res_wt_shrink)
   ## Return the z-score of the matrix here
@@ -90,7 +97,6 @@ data_heatmap <- function(normalised_data, sample){
   colnames(mut_mat.z) <- sample$Group
   
   return(mut_mat.z)
-  
 }
 
 ## Function that creates a gene list for gse analysis

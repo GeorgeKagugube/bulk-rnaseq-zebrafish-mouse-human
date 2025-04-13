@@ -5,9 +5,6 @@ rm(list = ls())
 ## Re-analysed samples with the new reference genome
 setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
 
-## Analysis (mapped on the pervious reference genome version)
-#setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ10_star_output')
-
 ## This is the output folder for the final analysis
 output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis'
 output_dir = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets'
@@ -88,55 +85,48 @@ dds_mut <- DESeqDataSetFromMatrix(countData = countMut,
 dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
                                   colData = wt,
                                   design = ~ Group)
+
+##Although filtering with DESeq is not reccomended, here we remove all genes whose
+## row sum is less than 10
+keep <- rowSums(counts(dds)) >= 10
+
 ## Perform some quality checks here. Use the developed function here. Input is the
 ## dds object and in some cases you need the sample_id as the function inputs expect
 ## check out the individual functions below in the environmnetal space
 pca_plot(dds_mut, mut)
 pca_plot(dds_wt, wt)
+pca_plot(dds, samples)
+
+vsdmut <- vst(dds_mut)
+
+vsdwt <- vst(dds_wt)
 
 ## calculate the pca values here
 vsd <- vst(dds)
 plotPCA(vsd, intgroup="Group")
-
-## Function to perform data normalisation 
-normalisation_func = function(data_obj){
-  norm_data = counts(estimateSizeFactors(data_obj), normalized = T)
-  return(norm_data)
-}
+plotPCA(vsdmut, intgroup = 'Group')
+plotPCA(vsdwt, intgroup = 'Group')
 
 all_norm_data <- normalisation_func(dds)
 mut_exposed <- normalisation_func(dds_mut)
 wt_exposed <- normalisation_func(dds_wt)
 
-## Set the file output directory here 
-output_dir <- '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets/'
-
 ## Export the csv file for further analysis and interogation
 write.csv(wt_exposed,
           file = paste0(output_dir,'/wt_exposed.csv'))
 
-## Export the data 
-write.csv(normalised_all,
-          file = paste0(output_folder,'/all_normalised.csv'))
-write.csv(normalised_counts_mut,
-          file = paste0(output_folder,'/mutant_normalised.csv'))
-write.csv(normalised_counts_mut,
-          file = paste0(output_folder,'/wt_normalised.csv'))
-
-## Transform normalised data for visualisation here 
-principle_component = function (data){
-  rld_data <- rlog(data, blind = T)
-  pca = prcomp(t(assay(rld_data)))
-  return(pca)
-}
+pca_mut <- principle_component(dds_mut)
+pca_wt <- principle_component(dds_wt)
+pca_all <- principle_component(dds)
   
 # Create a data frame that can used going forward from here on 
 count_mut_df <- cbind(mut,pca_mut$x)
 count_wt_df <- cbind(wt, pca_wt$x)
+count_all <- cbind(samples, pca_all$x)
 
 ## Visualise the data here 
-ggplot(data = count_mut_df) +
-  geom_point(aes(x=PC3, y=PC6, colour = Group), size=5) +
+ggplot(data = count_all) +
+  geom_point(aes(x=PC1, y=PC2, colour = Group), size=5) +
   theme_minimal() +
   labs(x = 'PC1: 68% variance',
        y = 'PC2: 22% varience') +
