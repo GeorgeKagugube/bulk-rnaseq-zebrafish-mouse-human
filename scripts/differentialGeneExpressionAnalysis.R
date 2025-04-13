@@ -14,7 +14,6 @@ output_dir = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/no
 
 ## Source user defined files containing some useful functions here
 source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
-#source("/Users/gwk/Desktop/PhD/Scripts/Bioinformatics/star_output_to_count_matrix.R")
 
 ## Set up variables here 
 ## Read the mapped and quantified files into r for further analysis here 

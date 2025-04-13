@@ -19,7 +19,14 @@ lapply(requiredPackages, library, character.only=TRUE)
 ################################################################################
 ################### Functions start from here. #################################
 ################################################################################
-
+#' Importing the data for analysis
+#' @description
+#' This function reads data from STAR mapping software
+#' 
+#' Parameters
+#' @param path_to_star files directory containing all the files 
+#' @param one_star_file Import one of the files to be imported in for analysis
+#' 
 staroutput_preprocessing <- function(path_to_star_files, one_star_file){
   # Function takes in two inputs
   # 1.path to directory with the star out put files
@@ -73,6 +80,17 @@ normalisation_func = function(data_obj){
   norm_data = counts(estimateSizeFactors(data_obj), normalized = T)
   
   return(norm_data)
+}
+
+data_heatmap <- function(normalised_data, sample){
+  sig_df <- sig_gene(res_wt_shrink)
+  ## Return the z-score of the matrix here
+  normalised_data <- normalised_data[rownames(sig_df),]
+  mut_mat.z <- t(apply(normalised_data, 1, scale))
+  colnames(mut_mat.z) <- sample$Group
+  
+  return(mut_mat.z)
+  
 }
 
 ## Function that creates a gene list for gse analysis
