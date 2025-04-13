@@ -437,8 +437,10 @@ slc39a14<sup>-/-</sub> to 20 µM MnCl<sub>2</sub>.</p>
 ## 
 ## Please cite:
 ## 
-## G Yu. Thirteen years of clusterProfiler. The Innovation. 2024,
-## 5(6):100722</code></pre>
+## Guangchuang Yu, Li-Gen Wang, Yanyan Han and Qing-Yu He.
+## clusterProfiler: an R package for comparing biological themes among
+## gene clusters. OMICS: A Journal of Integrative Biology. 2012,
+## 16(5):284-287</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;clusterProfiler&#39;</code></pre>
 <pre><code>## The following object is masked from &#39;package:stats&#39;:
@@ -664,7 +666,16 @@ all(row.names(samples) %in% colnames(countMatrix))</code></pre>
 seperately. Therefore, there are a few aproaches to dealing with the
 variation that comes with such a design. Analyse data within a genotype
 seperately, combine the data and batch correct for the seperate starting
-point of the groups.</p>
+point of the groups. Here I have tried all and compared the outputs from
+each. The most reliable comparision is within genotype.</p>
+<pre class="r"><code>head(samples)</code></pre>
+<pre><code>##               sampleID Genotype Treatment         Group batch
+## sample1   wt_unexposed       wt unexposed  wt_unexposed     c
+## sample10    wt_exposed       wt   exposed    wt_exposed     a
+## sample13 mut_unexposed   mutant unexposed mut_unexposed     c
+## sample14   mut_exposed   mutant   exposed   mut_exposed     c
+## sample17  wt_unexposed       wt unexposed  wt_unexposed     c
+## sample18    wt_exposed       wt   exposed    wt_exposed     c</code></pre>
 <pre class="r"><code># Split the data so that mutant and wt 
 # Mutant sample information
 mut &lt;- samples %&gt;%
@@ -694,6 +705,32 @@ wt</code></pre>
 ## sample18   wt_exposed
 ## sample2    wt_exposed
 ## sample9  wt_unexposed</code></pre>
+<pre class="r"><code>## Split the matrix here to analyse each genotype seperately here
+# Mutant count matrix
+countMut &lt;- countMatrix[,mutt]
+names(countMut)</code></pre>
+<pre><code>## [1] &quot;sample13&quot; &quot;sample14&quot; &quot;sample21&quot; &quot;sample22&quot; &quot;sample5&quot;  &quot;sample6&quot;</code></pre>
+<pre class="r"><code># WT countMatrix
+countWT &lt;- countMatrix[,-mutt]</code></pre>
+<pre class="r"><code>## warning message in the next step
+mut$Group &lt;- as.factor(mut$Group)
+wt$Group &lt;- as.factor(wt$Group)
+samples$Group &lt;- as.factor(samples$Group)
+
+# Build a DESeq2 object here. The count data is given as a metrix, column names
+# are the samples and the rownames are the Ensemble gene ids. This is important
+# The design contains what makes up the model (negatve bionimial model in this case)
+dds &lt;- DESeqDataSetFromMatrix(countData = as.matrix(countMatrix),
+                              colData = samples,
+                              design = ~ Group)
+
+dds_mut &lt;- DESeqDataSetFromMatrix(countData = countMut,
+                                  colData = mut,
+                                  design = ~ Group)
+
+dds_wt &lt;- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
+                                  colData = wt,
+                                  design = ~ Group)</code></pre>
 <p>Note that the <code>echo = FALSE</code> parameter was added to the
 code chunk to prevent printing of the R code that generated the
 plot.</p>

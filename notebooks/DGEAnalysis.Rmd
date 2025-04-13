@@ -75,6 +75,10 @@ all and compared the outputs from each. The most reliable comparision is within
 genotype.
 
 ```{r}
+head(samples)
+```
+
+```{r}
 # Split the data so that mutant and wt 
 # Mutant sample information
 mut <- samples %>%
@@ -92,4 +96,46 @@ wt <- samples %>%
   dplyr::select(Group) 
 wt
 ```
+```{r}
+## Split the matrix here to analyse each genotype seperately here
+# Mutant count matrix
+countMut <- countMatrix[,mutt]
+names(countMut)
+
+# WT countMatrix
+countWT <- countMatrix[,-mutt]
+```
+
+
+```{r}
+## warning message in the next step
+mut$Group <- as.factor(mut$Group)
+wt$Group <- as.factor(wt$Group)
+samples$Group <- as.factor(samples$Group)
+
+# Build a DESeq2 object here. The count data is given as a metrix, column names
+# are the samples and the rownames are the Ensemble gene ids. This is important
+# The design contains what makes up the model (negatve bionimial model in this case)
+dds <- DESeqDataSetFromMatrix(countData = as.matrix(countMatrix),
+                              colData = samples,
+                              design = ~ Group)
+
+dds_mut <- DESeqDataSetFromMatrix(countData = countMut,
+                                  colData = mut,
+                                  design = ~ Group)
+
+dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
+                                  colData = wt,
+                                  design = ~ Group)
+```
+
+```{r}
+pca_plot(dds_mut, mut)
+pca_plot(dds_wt, wt)
+
+## calculate the pca values here
+vsd <- vst(dds)
+plotPCA(vsd, intgroup="Group")
+```
+
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
