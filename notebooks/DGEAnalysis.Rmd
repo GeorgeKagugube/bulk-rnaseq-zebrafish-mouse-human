@@ -18,16 +18,78 @@ species control in the mitochondria.
 
 Mn homeostasis is therefore important for normal physiological function. 
 
-```{r cars}
-summary(cars)
+In this project, I sought to undestand the changes in the transcriptional profile 
+of a Mn overloaded zebrafish. To understand the extent of the changes, I exposed
+slc39a14<sup>+/+</sup> and slc39a14<sup>-/-</sub> to 20 µM MnCl<sub>2</sub>. 
+
+I then analysed the datasets for differential gene expression (DGE). 
+
+```{r echo=FALSE}
+## Load and source the files needed for the analysis
+source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
 ```
 
-## Including Plots
+```{r}
+## Read the mapped and quantified files into r for further analysis here 
+file1 <- "1_S1_ReadsPerGene.out.tab"
+dr <- '/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star'
 
-You can also embed plots, for example:
+# This is output from star - these are files with ReadsPerGene.out.tab
+countMatrix <- staroutput_preprocessing(dr, file1)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# If no sample information exists, you can create to match the countMatrix
+samples <- read.csv("sample_information.csv", row.names = 1)
 ```
 
+## Explore the datsets that have been imported
+The files from STAR mapping are imported here. The code is part of a pipeline, 
+that maps the reads to a reference genome (Gz11) using the two pass approach. 
+
+To check for the structure of these two file i.e. the count files and sample info
+documents allows us to make sure that we set up the files to be acceptade by 
+DESeq2
+
+```{r}
+head(countMatrix)
+head(samples, 15)
+```
+
+```{r}
+## Fix the column names in the count matrix to match the sample information rownames
+row_col_names <- as.vector(paste0("sample",rownames(samples)))
+rownames(samples) <- row_col_names
+colnames(countMatrix) <- row_col_names
+
+## Makesure that sample rownames match the countmatrix colnames here
+# The lines below must return true for all
+# if false, please investigate the rownames match the countMatrix colnames
+all(row.names(samples) %in% colnames(countMatrix))
+all(row.names(samples) == colnames(countMatrix))
+```
+
+The experimental setup was such that WT and mutants were reared seperately. 
+Therefore, there are a few aproaches to dealing with the variation that comes
+with such a design. Analyse data within a genotype seperately, combine the data
+and batch correct for the seperate starting point of the groups. Here I have tried 
+all and compared the outputs from each. The most reliable comparision is within
+genotype.
+
+```{r}
+# Split the data so that mutant and wt 
+# Mutant sample information
+mut <- samples %>%
+  filter(Genotype == "mutant") %>%
+  dplyr::select(Group)
+
+mut
+
+mutt <- c(3,4,8,9,10,11)
+mutt
+
+# Wild type sample information
+wt <- samples %>%
+  filter(Genotype == "wt") %>%
+  dplyr::select(Group) 
+wt
+```
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

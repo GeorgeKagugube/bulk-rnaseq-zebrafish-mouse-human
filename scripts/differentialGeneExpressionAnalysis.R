@@ -13,13 +13,13 @@ output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis
 output_dir = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets'
 
 ## Source user defined files containing some useful functions here
-source("/Users/gwk/Desktop/PhD/RNA_Sequencing/Bulk_RNA_Seq/PhD_RNA_Seq_Data/Re_run_counts/Scripts/helper_function_and_env_setup.R")
-source("/Users/gwk/Desktop/PhD/Scripts/Bioinformatics/star_output_to_count_matrix.R")
+source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
+#source("/Users/gwk/Desktop/PhD/Scripts/Bioinformatics/star_output_to_count_matrix.R")
 
 ## Set up variables here 
 ## Read the mapped and quantified files into r for further analysis here 
 file1 <- "1_S1_ReadsPerGene.out.tab"
-dr <- getwd()
+dr <- '/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star'
 
 ## load the data into R for further analysis here 
 # This is output from star - these are files with ReadsPerGene.out.tab
