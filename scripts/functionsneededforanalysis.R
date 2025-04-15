@@ -99,6 +99,41 @@ data_heatmap <- function(normalised_data, sample){
   return(mut_mat.z)
 }
 
+####### valcano plots
+volcanoPlot <- function(df){
+  plot_1 <- EnhancedVolcano(df,
+                            lab = rownames(df),
+                            x = 'log2FoldChange',
+                            y = 'pvalue',
+                            axisLabSize = 30,
+                            xlim = c(-3, 3),
+                            ylim = c(0, 30),
+                            pointSize = 2.0,
+                            labSize = 8.5,
+                            labFace = "plain",
+                            title = 'DESeq2 results',
+                            subtitle = 'Differential expression',
+                            caption = 'FC cutoff, 1.333; p-value cutoff, 0.05',
+                            legendPosition = "right",
+                            legendLabSize = 30,
+                            pCutoff = 0.05,
+                            FCcutoff = 1.0)
+  
+  return(plot_1)
+}
+
+## Venn Diagram of any number of sets to be drawn here
+venPlot <- function(dgeset){
+  p3 <- ggvenn(dgeset, 
+               set_name_size = 10, 
+               text_size = 10,
+               fill_alpha = 0.25,
+               stroke_size = 1.5,
+               show_outside = "auto")
+  
+  return(p3)
+}
+
 ## Function that creates a gene list for gse analysis
 creategenelist <- function(dge_data_set, analysis = 'gsea'){
   #' @title Go or KEGG Gene list  
