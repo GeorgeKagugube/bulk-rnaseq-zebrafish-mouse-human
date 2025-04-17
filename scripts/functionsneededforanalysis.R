@@ -88,15 +88,51 @@ principle_component = function (data){
   pca = prcomp(t(assay(rld_data)))
   return(pca)
 }
+sig_gene <- function(datafframe) {
+  sigs <- datafframe %>%
+    as.data.frame() %>%
+    filter(padj < 0.05)
+  ## Return value from the data frame here
+  return(sigs)
+}
 
-data_heatmap <- function(normalised_data, sample){
-  sig_df <- sig_gene(res_wt_shrink)
+#' Generate a matrix for constructing a heatmap of selected data
+#' @description
+#' Function that computes a matrix that can be used to heatmap
+#' 
+#' @param normalised_data A dataframe of the normalised count data ()
+#' @param sample data frame containing sample information used to build DESeq2 object
+#' @param lfc log2foldchange (shrunk) dataset, needed to extract significant genes
+#' 
+data_heatmap <- function(normalised_data, sample, lfc){
+  sig_df <- sig_gene(lfc)
   ## Return the z-score of the matrix here
   normalised_data <- normalised_data[rownames(sig_df),]
   mut_mat.z <- t(apply(normalised_data, 1, scale))
   colnames(mut_mat.z) <- sample$Group
   
   return(mut_mat.z)
+  
+}
+
+## Plot a heatMap using this function
+#' Plot Heatmap
+#' 
+#' @description
+#' This function plots a heatmap
+#' 
+#' @params: data_frame: a matrix of normalised counts with the rownames set to the gene names
+#'          signs: a dataframe of selected gens from the DGE analysis
+#' 
+figure_heatmap <- function(data_frame, sigs){
+  plot1 <- Heatmap(data_frame[rownames(signs),], name = "Z - Score", row_km = 2, column_km = 2,row_labels = rownames(sigs),
+                   column_labels = colnames(data_frame),
+                   #top_annotation = HeatmapAnnotation(data_frame = 1:dim(data_frame)[2]) #, bar1 = anno_points(runif(dim(data_frame)[2]))),
+                   #right_annotation = rowAnnotation(data_frame = dim(data_frame[rownames(signs),])[1]:1, 
+                   #                                  bar2 = anno_barplot(runif(dim(data_frame[rownames(signs),])[1])))
+  )
+  
+  return(plot1)
 }
 
 ####### valcano plots
@@ -132,6 +168,22 @@ venPlot <- function(dgeset){
                show_outside = "auto")
   
   return(p3)
+}
+
+## Annotat the data before exporting the data 
+annot_data <- function(data, org = org.Dr.eg.db) {
+  data$entrezid <- mapIds(org,
+                          keys = row.names(data),
+                          column = c("ENTREZID"),
+                          keytype = "SYMBOL",
+                          multiVals = "first")
+  data$esembl_id <- mapIds(org,
+                           keys = row.names(data),
+                           column = c("ENSEMBL"),
+                           keytype = "SYMBOL",
+                           multiVals = "first")
+  
+  return(data)
 }
 
 ## Function that creates a gene list for gse analysis

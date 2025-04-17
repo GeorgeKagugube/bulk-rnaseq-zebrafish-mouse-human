@@ -1,12 +1,17 @@
 ## Clear the environmental space here to start affresh 
 rm(list = ls())
 
+## Set up the analysis to run multiple cores, here we use 4 cores after removing lowely 
+# expressed genes
+library("BiocParallel")
+register(MulticoreParam(4))
+
 ## Set the directory with the expression datasets here 
 ## Re-analysed samples with the new reference genome
 setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
 
 ## This is the output folder for the final analysis
-output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis'
+output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/15-04-25/'
 output_dir = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets'
 
 ## Source user defined files containing some useful functions here
@@ -29,8 +34,10 @@ samples <- read.csv("sample_information.csv", row.names = 1)
 head(countMatrix)
 head(samples, 15)
 
-samples <- samples[-c(2,12),]
-countMatrix <- countMatrix[,-c(11,12)]
+
+## Optional drop the outliers samples here
+#samples <- samples[-c(2,12),]
+#countMatrix <- countMatrix[,-c(11,12)]
 
 ## Fix the column names in the count matrix to match the sample information rownames
 row_col_names <- as.vector(paste0("sample",rownames(samples)))
@@ -95,6 +102,8 @@ dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
 keep <- rowSums(counts(dds)) >= 10
 dds <- dds[keep,]
 
+## Relevel the conditions here
+dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
 ## Perform some quality checks here. Use the developed function here. Input is the
 ## dds object and in some cases you need the sample_id as the function inputs expect
 ## check out the individual functions below in the environmnetal space
@@ -102,31 +111,6 @@ dds <- dds[keep,]
 vsdmut <- vst(dds_mut)
 vsdwt <- vst(dds_wt)
 vsd <- vst(dds)
-
-## Run tsne analysis here
-expr_matrix <- assay(vsd)
-
-# Keep genes with high variance across samples
-var_genes <- apply(expr_matrix, 1, var)
-top_genes <- head(order(var_genes, decreasing = TRUE), 1000)
-expr_matrix_filtered <- expr_matrix[top_genes, ]
-
-tsne_input <- t(expr_matrix_filtered)
-
-set.seed(123)  # For reproducibility
-tsne_result <- Rtsne(tsne_input, dims = 2, perplexity = 1, verbose = TRUE)
-
-df <- data.frame(
-  Sample = rownames(tsne_input),
-  tSNE1 = tsne_result$Y[,1],
-  tSNE2 = tsne_result$Y[,2],
-  Group = samples$Group
-)
-
-ggplot(df, aes(x = tSNE1, y = tSNE2, color = Group)) +
-  geom_point(size = 4) +
-  theme_minimal() +
-  labs(title = "t-SNE of Bulk RNA-seq Data", color = "Group")
 
 ## Plot visualise the PCA
 plotPCA(vsd, intgroup="Group")
@@ -150,10 +134,10 @@ count_all <- cbind(samples, pca_all$x)
 
 ## Visualise the data here 
 ggplot(data = count_all) +
-  geom_point(aes(x=PC2, y=PC8, colour = Group), size=5) +
+  geom_point(aes(x=PC1, y=PC2, colour = Group), size=5) +
   theme_minimal() +
-  labs(x = 'PC1: 68% variance',
-       y = 'PC2: 22% varience') +
+  labs(x = 'PC1: 29% variance',
+       y = 'PC2: 23% varience') +
   theme(
     axis.text = element_text(size = 20),
     axis.text.x = element_text(angle = 90, vjust = 0.5),
@@ -162,67 +146,8 @@ ggplot(data = count_all) +
     axis.title.y = element_text(size = 15, vjust = 0.5)
   )
   
-## Perform hierarchical clustering 
-### Compute pairwise correlation values
-rld_cor <- cor(rld_mat)    ## cor() is a base R function
-rld_wt_corr <- cor(rld_wt_mat)
-
-## Generat a heatmap plot here 
-pheatmap(rld_cor)
-pheatmap(rld_wt_corr)
-
-## Differential gene expression
-## probably the most important command :)
+## Perform differential gene expression analysis here
 dds <- DESeq(dds)
-
-## Need to correct for potential batch effects here
-# Variance-stabilizing transformation (preserves design info)
-vsd <- vst(dds, blind = FALSE)
-# Remove batch effect using limma (for visualization only)
-vsd_corrected <- removeBatchEffect(assay(vsd), batch = vsd$batch)
-
-# Select top variable genes
-var_genes <- apply(vsd_corrected, 1, var)
-top_genes <- head(order(var_genes, decreasing = TRUE), 100)
-tsne_input <- t(vsd_corrected[top_genes, ])
-
-# Run t-SNE
-set.seed(123)
-tsne_result <- Rtsne(tsne_input, dims = 2, perplexity = 3)
-
-# Create data frame for plotting
-df_tsne <- data.frame(
-  Sample = rownames(tsne_input),
-  tSNE1 = tsne_result$Y[,1],
-  tSNE2 = tsne_result$Y[,2],
-  Condition = samples$Group
-)
-
-# Plot t-SNE
-ggplot(df_tsne, aes(x = tSNE1, y = tSNE2, color = Condition)) +
-  geom_point(size = 4) +
-  theme_minimal() +
-  labs(title = "t-SNE on Batch-Corrected Expression", color = "Group")
-
-# Heatmap of batch-corrected expression for same genes
-top_matrix <- vsd_corrected[top_genes, ]
-
-# Annotation for columns
-annotation_col <- data.frame(
-  Condition = samples$Group,
-  Batch = samples$batch
-)
-rownames(annotation_col) <- rownames(samples)
-
-# Plot heatmap
-pheatmap(top_matrix,
-         annotation_col = annotation_col,
-         show_rownames = FALSE,
-         clustering_distance_cols = "euclidean",
-         clustering_method = "complete",
-         scale = "row",
-         main = "Heatmap of Top 1000 Variable Genes (Batch Corrected)")
-
 dds_mut <- DESeq(dds_mut)
 dds_wt <- DESeq(dds_wt)
 
@@ -234,72 +159,25 @@ resultsNames(dds)
 resultsNames(dds_mut)
 resultsNames(dds_wt)
 
-res <- results(dds, name = "Group_wt_unexposed_vs_mut_exposed")
-ress_mut <- results(dds_mut, name = "Group_mut_unexposed_vs_mut_exposed")
-resLFC_mutComb <- results(dds, name = "Group_mut_unexposed_vs_mut_exposed")
-ress_wt <- results(dds_wt, name = "Group_wt_unexposed_vs_wt_exposed")
-ress_wtVSmutexposed <- results(dds, name = "Group_wt_exposed_vs_mut_exposed")
+## Set up group comparisions here 
+res_wt_mn <- results(dds, contrast = c('Group','wt_unexposed','wt_exposed'))
+res_wt_mn <- lfcShrink(dds, contrast = c('Group','wt_unexposed','wt_exposed'),  type = 'ashr')
 
-resLFC <- lfcShrink(dds, coef="Group_wt_unexposed_vs_mut_exposed", 
-                    type="apeglm")
-resLFC_mut <- lfcShrink(dds_mut, coef="Group_mut_unexposed_vs_mut_exposed", 
-                    type="apeglm")
-resLFC_mutComb <- lfcShrink(dds, coef = "Group_mut_unexposed_vs_mut_exposed",
-                            type = 'apeglm')
-resLFC_wt <- lfcShrink(dds_wt, coef="Group_wt_unexposed_vs_wt_exposed", 
-                    type="apeglm")
-ress_wtVSmutexposed <- lfcShrink(dds, coef = "Group_wt_exposed_vs_mut_exposed")
-summary(resLFC)
-resLFC_mut <- na.omit(resLFC_mut)
-resLFC_wt <- na.omit(resLFC_wt)
+## Baseline mutant effect on transcriptomics
+res_controls <- results(dds, contrast = c('Group', 'wt_unexposed','mut_unexposed'))
+res_controls <- lfcShrink(dds, contrast = c('Group', 'wt_unexposed','mut_unexposed'),  type = 'ashr')
 
-dim(resLFC_wt %>%
-  as.data.frame() %>%
-  filter(padj < 0.05))
-lfc <- na.omit(resLFC)
+## Manganese effect in mutant
+mn_effect_mut <- results(dds, contrast = c('Group','mut_unexposed', 'mut_exposed'))
+mn_effect_mut <- lfcShrink(dds, contrast = c('Group','mut_unexposed', 'mut_exposed'),  type = 'ashr')
 
-createObjectSet <- function(df, pvalue=0.05){
-  if (is.data.frame(df)){
-    set1 <- df %>%
-      filter(padj < pvalue) %>%
-      rownames()
-  }else{
-    set1 <- df %>%
-      as.data.frame() %>%
-      filter(padj < pvalue) |>
-      rownames()
-  }
-  
-  return(set1)
-}
+## Interaction between genotype and manganese
+mn_genotype_interaction <- results(dds, contrast = c('Group', 'wt_exposed', 'mut_exposed'))
+mn_genotype_interaction <- lfcShrink(dds, contrast = c('Group','wt_exposed', 'mut_exposed'),  type = 'ashr')
 
-mutOnly <- resLFC_mut %>%
-  as.data.frame() %>%
-  filter(padj < 0.05) %>%
-  rownames()
-
-mutComb <- resLFC_mutComb %>%
-  as.data.frame() %>%
-  filter(padj < 0.05) %>%
-  rownames()
-
-mut_wt <- resLFC %>%
-  as.data.frame() %>%
-  filter(padj < 0.05) %>%
-  rownames()
-
-mute_wte <- ress_wtVSmutexposed %>%
-  as.data.frame() %>%
-  filter(padj < 0.05) %>%
-  rownames()
-
-wt <- resLFC_wt %>%
-  as.data.frame() %>%
-  filter(padj < 0.05) %>%
-  rownames()
 
 dge1 <- list('wt exposed' = wt,
-             'mut Exposed' = mutOnly)
+             'mut Exposed' = mut_wt)
 ggvenn(dge1)
 
 dge2 <- list('wt exposed' = wt,
@@ -317,78 +195,9 @@ summary(res05)
 res05[res05$padj < 0.05]
 res05 %>%
   filter(padj < 0.05)
-diff_expression_func = function(data_obj, condition_ = 'mut_unexposed',
-                                test_comparision = 'Group_mut_exposed_vs_mut_unexposed',
-                                coefficient = 2){ 
-  data_obj$Group <- relevel(data_obj$Group, ref = condition_)
-  data_obj <- DESeq(data_obj)
-  
-  ## 
-  res_data_condition <- results(data_obj,
-                                name = test_comparision,
-                                alpha = 0.05)
-  ## Shrink the data object to extract log fold changes 
-  res_data_shrink <- lfcShrink(dds = data_obj, 
-                               coef = coefficient, 
-                               res = res_data_condition)
-  
-  ## Annotate the dat with entrezi and Ensembl gene IDs here
-  annotated_data <- annot_data(res_data_shrink)
-  
-  ## Return the annotated data set for downstreem analysis
-  return(annotated_data)
-}
-
-
-## Annotat the data before exporting the data 
-annot_data <- function(data, org = org.Dr.eg.db) {
-  data$entrezid <- mapIds(org,
-                          keys = row.names(data),
-                          column = c("ENTREZID"),
-                          keytype = "SYMBOL",
-                          multiVals = "first")
-  data$esembl_id <- mapIds(org,
-                           keys = row.names(data),
-                           column = c("ENSEMBL"),
-                           keytype = "SYMBOL",
-                           multiVals = "first")
-  
-  return(data)
-}
-
-res_all_wt_exposed_shrink <- annot_data(res_all_wt_exposed_shrink)
 
 ## Export data to a csv file for further analysis and inspection later
 ## Export the data 
-write.csv(res_all_wt_exposed_shrink,
-          file = paste0(output_folder,'/wt_exposed.csv'))
+write.csv(resLFC,
+          file = paste0(output_folder,'Group_mut_exposed_vs_mut_unexposed.csv'))
 
-################################################################################
-############. Heatmap Plot of the DEG list here ################################
-################################################################################
-sig_gene <- function(datafframe, basemean = 100, lfc = 1.0) {
-  sigs <- datafframe %>%
-    as.data.frame() %>%
-    filter(padj < 0.05)
-  
-  ## sig
-  sig_df <- sigs[(sigs$baseMean > basemean) & abs((sigs$log2FoldChange >= lfc)),]
-  sig_df <- na.omit(sig_df)
-  
-  ## Return value from the data frame here
-  return(sig_df)
-}
-
-sig_df <- sig_gene(res_wt_shrink)
-
-data_heatmap <- function(normalised_data, sample){
-  sig_df <- sig_gene(res_wt_shrink)
-  ## Return the z-score of the matrix here
-  normalised_data <- normalised_data[rownames(sig_df),]
-  mut_mat.z <- t(apply(normalised_data, 1, scale))
-  colnames(mut_mat.z) <- sample$Group
-  
-  return(mut_mat.z)
-  
-}
-data_heatmap(normalised_counts_wt, wt)
