@@ -218,21 +218,9 @@ res_wt_mn <- results(dds, contrast = c('Group','wt_unexposed','wt_exposed'))
 res_wt_mn <- lfcShrink(dds, contrast = c('Group','wt_unexposed','wt_exposed'),  type = 'ashr')
 head(res_wt_mn)
 ```
+# Visualise these datasets here
+In order to see the differences in the transcriptome profile of the brain exposed to Mn, a volcano plot and heatmaps can be plotted to see how these datasets. Here a prepare these data for such plots. 
 
-```{r}
-# add a column to the data telling whether a gene is up, down or not significantly de
-new_data <- res_wt_mn %>%
-  as.data.frame() |>
-  mutate(differentialExpression = case_when(
-    padj < 0.05 & log2FoldChange > 0 ~ "UP",
-    padj < 0.05 & log2FoldChange < -0 ~ "DOWN",
-    TRUE ~ "NO"
-  )) 
-
-new_data <- new_data |>
-  mutate(symbols = rownames(new_data)) |>
-  arrange(log2FoldChange) 
-```
 # Effects of Mn and genotype
 To examine the changes in the transcriptome landscape of the mutant zebrafish, a comparison between unexposed and exposed mutants was run. 
 
@@ -263,8 +251,8 @@ ggplot(data = new_data, aes(x = log2FoldChange, y = -log10(padj), col = differen
   coord_cartesian(ylim = c(0, 15), xlim = c(-10, 10)) + # since some genes can have minuslog10padj of inf, we set these limits
   labs(color = 'Severe', #legend_title, 
        x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
-  scale_x_continuous(breaks = seq(-7, 7, 2)) #+ # to customise the breaks in the x axis
-  geom_text_repel(max.overlaps = Inf)
+  scale_x_continuous(breaks = seq(-7, 7, 2)) + # to customise the breaks in the x axis
+  geom_text_repel()
   
 ```
 # Overlaping differentially expressed genes
@@ -298,9 +286,40 @@ dge_muation <- mutation_only |>
 # Generate the venn diagrams here
 ```{r}
 dge <- list('WT' = rownames(dge_wt),
-            'Muts' = rownames(dge_mut),
-            'Overlap' = rownames(dge_muation))
+            'Muts' = rownames(dge_mut))#,
+            #'Overlap' = rownames(dge_muation))
 
 venPlot(dgeset = dge)
+```
+
+```{r}
+overlap <- rownames(dge_wt[rownames(dge_wt) %in% rownames(dge_mut),])
+
+# Select the overlapping genes from both of the dataframes for their expression values 
+d1 <- as.data.frame(res_mut_mn)
+d1[overlap,2,]
+```
+
+```{r}
+heatmap_data <- data_heatmap(all_norm_data, samples, res_wt_mn)
+signs <- sig_gene(res_wt_mn)
+figure_heatmap(heatmap_data, sigs = signs)
+```
+
+```{r}
+heatmap_data <- data_heatmap(all_norm_data, samples, res_mut_mn)
+signs <- sig_gene(res_mut_mn)
+figure_heatmap(heatmap_data, sigs = signs)
+```
+
+# Generate a heamap of the dataset above here
+```{r}
+heatmap_data <- data_heatmap(all_norm_data, samples, mutation_only)
+signs <- sig_gene(mutation_only)
+figure_heatmap(heatmap_data, sigs = signs)
+```
+
+```{r}
+
 ```
 

@@ -96,6 +96,15 @@ sig_gene <- function(datafframe) {
   return(sigs)
 }
 
+sig_gene_names <- function(datafframe) {
+  sigs <- datafframe %>%
+    as.data.frame() %>%
+    filter(padj < 0.05) %>%
+    rownames()
+  ## Return value from the data frame here
+  return(sigs)
+}
+
 #' Generate a matrix for constructing a heatmap of selected data
 #' @description
 #' Function that computes a matrix that can be used to heatmap
@@ -132,6 +141,48 @@ figure_heatmap <- function(data_frame, sigs){
   )
   
   return(plot1)
+}
+
+#' Adding gene symbols as a coulmn and another column for to include the direction of change of expression
+#' Create a new dataframe for the existing lfcshrunk dataframe 
+#' @description
+#' Function that takes in a dataset from DESeq2 and adds two columns one
+#' 
+#' @param dataset An annotated dataframe from DESeq with gene symbols as rows 
+
+addDirectionlabel <- function(dataset) {
+  mutated_dataset <- dataset %>%
+    as.data.frame() %>%
+    mutate(diffExpression = case_when(
+      padj < 0.05 & log2FoldChange > 0 ~ "UP",
+      padj < 0.05 & log2FoldChange < -0 ~ "DOWN",
+      TRUE ~ "NO"
+    ),
+    symbols = row.names(dataset))
+  
+  return(mutated_dataset)
+}
+
+## Another version of a volcano plot
+#' A volcano plot using ggplot
+#' @description
+#' Function that returns a volcano plot of the datasets compared
+#' 
+#' @param dataset A data set that 
+#' 
+vPlot <- function(dataset){
+  plot1 <- ggplot(data = dataset, aes(x = log2FoldChange, y = -log10(padj), 
+                                      col = differentialExpression, label = symbols)) +
+    geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
+    geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
+    geom_point(size = 2) + 
+    scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), # to set the colours of our variable  
+                       labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
+    coord_cartesian(ylim = c(0, 15), xlim = c(-10, 10)) + # since some genes can have minuslog10padj of inf, we set these limits
+    labs(color = 'Severe', #legend_title, 
+         x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
+    scale_x_continuous(breaks = seq(-7, 7, 2)) + # to customise the breaks in the x axis
+    geom_text_repel()
 }
 
 ####### valcano plots
