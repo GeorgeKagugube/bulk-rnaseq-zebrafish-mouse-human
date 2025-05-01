@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ## Set the directory with the expression datasets here 
 setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
 
@@ -227,8 +227,11 @@ new_data <- res_wt_mn %>%
     padj < 0.05 & log2FoldChange > 0 ~ "UP",
     padj < 0.05 & log2FoldChange < -0 ~ "DOWN",
     TRUE ~ "NO"
-  )) |>
-  arrange(padj) 
+  )) 
+
+new_data <- new_data |>
+  mutate(symbols = rownames(new_data)) |>
+  arrange(log2FoldChange) 
 ```
 # Effects of Mn and genotype
 To examine the changes in the transcriptome landscape of the mutant zebrafish, a comparison between unexposed and exposed mutants was run. 
@@ -249,19 +252,49 @@ head(mutation_only, 20)
 ```
 
 # Perform some visualisation of the data here
+
 ```{r}
-ggplot(data = new_data, aes(x = log2FoldChange, y = -log10(padj), col = differentialExpression, label = rownames(new_data))) +
+ggplot(data = new_data, aes(x = log2FoldChange, y = -log10(padj), col = differentialExpression, label = symbols)) +
   geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
   geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
   geom_point(size = 2) + 
   scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), # to set the colours of our variable  
                      labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
-  coord_cartesian(ylim = c(0, 250), xlim = c(-10, 10)) + # since some genes can have minuslog10padj of inf, we set these limits
+  coord_cartesian(ylim = c(0, 15), xlim = c(-10, 10)) + # since some genes can have minuslog10padj of inf, we set these limits
   labs(color = 'Severe', #legend_title, 
        x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
-  scale_x_continuous(breaks = seq(-10, 10, 2)) + # to customise the breaks in the x axis
-  ggtitle('Thf-like cells in severe COVID vs healthy patients') + # Plot title 
-  geom_text_repel(max.overlaps = Inf) # To show all labels 
+  scale_x_continuous(breaks = seq(-7, 7, 2)) #+ # to customise the breaks in the x axis
+  geom_text_repel(max.overlaps = Inf)
+  
+```
+# Overlaping differentially expressed genes
+Three major comparision groups were derived from the dataset to this point. That is exposed wild types and mutants and unexposed group. to extract the overlapping genes, a venn diagram was used to first he number of genes overlapping across the three groups and then the expression levels of these genes were extracted for further analysis. 
+```{r}
+# Effect of exposure on wt
+dge_wt <- res_wt_mn |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  arrange(desc(padj))
 
+# Effect of exposure on mut
+dge_mut <- res_mut_mn |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  arrange(desc(padj))
+
+# Effect of mutation only
+dge_muation <- mutation_only |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  arrange(desc(padj))
+```
+
+# Generate the venn diagrams here
+```{r}
+dge <- list('WT' = rownames(dge_wt),
+            'Muts' = rownames(dge_mut),
+            'Overlap' = rownames(dge_muation))
+
+venPlot(dgeset = dge)
 ```
 
