@@ -1,0 +1,267 @@
+---
+title: "Mn and nuerotoxicity"
+author: "George W Kagugube"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+## Set the directory with the expression datasets here 
+setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
+
+#This is the output folder for the final analysis
+output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/21_04_25/'
+
+## Source user defined files containing some useful functions here
+source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
+```
+
+## R Markdown
+
+This is the differential gene expression analysis of bulk RNA seq data from zebrafish brain tissue. The aim of the study was to uncover the molecular and cellular mechanisms of Mn nuerotoxicity. To achive this, a loss-of-function mutation of the slc39a14<sup>-/-</sup> zebrafish was compared to its unexposed group. To ascertain the transcriptomic changes due to genotype and Mn exposure, a control group of slc39a14<sup+/+</sup> was used to generate the following broad groups and analyses.
+
+1. **Effects of Mn Exposure**  
+      - The effects of Mn related transcriptional changes were analysed when exposed WT were compared with Unexposed
+      
+2. **Effects of genotype**. 
+      - Mut control vs WT 
+
+Data up to this point has been generated using STAR with the latest reference genome. 
+```{r}
+## Read the mapped and quantified files into r for further analysis here 
+file1 <- "1_S1_ReadsPerGene.out.tab"
+dr <- '/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star'
+
+## load the data into R for further analysis here 
+# This is output from star - these are files with ReadsPerGene.out.tab
+countMatrix <- staroutput_preprocessing(dr, file1)
+
+samples <- read.csv("sample_information.csv", row.names = 1)
+```
+
+Check the top five rows of the two dataframes here. To make sure that the data has been loaded correctly, this code section has loads the top 5 rows of each dataframe for inspection
+```{r}
+## Explore the loaded data here
+print(head(countMatrix[,1:6]))
+print(head(samples))
+```
+
+From the above code section it is clear that the column names in the count dataframe do not much the row names in the sample information data frame. To create a DESeq object, the two need to match. this code section matches these automatically in both dataframes
+```{r}
+## Fix the column names in the count matrix to match the sample information rownames
+row_col_names <- as.vector(paste0("sample",rownames(samples)))
+rownames(samples) <- row_col_names
+colnames(countMatrix) <- row_col_names
+```
+
+Before creating the DESeq object, one has to check that rows names in the sample information dataframe match the column names in the matrix. They also need to be equal to each other for each sample to ensure that the downstream analysis matches each sample information to the correct sample. There are other ways of reading these datasets into r for analysis. for more information, the reader is referred to **[INSERT LINK HERE]**
+```{r}
+# if false, please investigate the rownames match the countMatrix colnames
+all(row.names(samples) %in% colnames(countMatrix))
+all(row.names(samples) == colnames(countMatrix))
+```
+
+To allow for flexibility, samples for each genotype need to be grouped together easily. Here a I create a sample information for each genotype making it easy further down the analysis for split analyses should I choose to. 
+
+```{r}
+# Split the data so that mutant and wt 
+# Mutant sample information
+mut <- samples %>%
+  filter(Genotype == "mutant") %>%
+  dplyr::select(Group)
+
+# Wild type sample information
+wt <- samples %>%
+  filter(Genotype == "wt") %>%
+  dplyr::select(Group) 
+
+## Split the matrix here to analyse each genotype seperately here
+# Mutant count matrix
+countMut <- countMatrix[,rownames(mut)]
+names(countMut)
+
+# WT countMatrix
+countWT <- countMatrix[,rownames(wt)]
+
+```
+
+I convert the groups to be compared to factors. This is not neccessary, but it getsrid of any warnings that may come from creating a DEseq object.
+```{r}
+## warning message in the next step
+mut$Group <- as.factor(mut$Group)
+wt$Group <- as.factor(wt$Group)
+samples$Group <- as.factor(samples$Group)
+```
+
+Here I create a DESeq object. I create three object where one contains all the data from both genotypes. In addition, I creata an object for each genotype. This is not needed in a typical anaysis pipeline, although the outsomes will be different should this split be done. 
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = as.matrix(countMatrix),
+                              colData = samples,
+                              design = ~ Group)
+
+dds_mut <- DESeqDataSetFromMatrix(countData = countMut,
+                                  colData = mut,
+                                  design = ~ Group)
+
+dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
+                                  colData = wt,
+                                  design = ~ Group)
+```
+
+While not needed, it is recommended that some filtering of the data is done to remove genes with low expression values. 
+```{r}
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+## Filter mutants here
+keep_mut <- rowSums(counts(dds_mut)) >= 10
+dds_mut <- dds_mut[keep_mut,]
+
+## Filter wild type data here
+keep_wt <- rowSums(counts(dds_wt)) >= 10
+dds_wt <- dds_wt[keep_wt,]
+```
+
+The reference condition here
+```{r}
+## Relevel the conditions here
+dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
+dds_mut$Group <- relevel(dds_mut$Group, ref = 'mut_unexposed')
+dds_wt$Group <- relevel(dds_wt$Group, ref = 'wt_unexposed')
+```
+
+```{r}
+vsd <- vst(dds)
+vsdmut <- vst(dds_mut)
+vsdwt <- vst(dds_wt)
+
+```
+
+```{r}
+## Plot visualise the PCA
+plotPCA(vsd, intgroup="Group")
+plotPCA(vsdmut, intgroup = 'Group')
+plotPCA(vsdwt, intgroup = 'Group')
+```
+
+```{r}
+## Normalise the count data
+all_norm_data <- normalisation_func(dds)
+mut_exposed <- normalisation_func(dds_mut)
+wt_exposed <- normalisation_func(dds_wt)
+```
+
+```{r}
+## calculate the principle component analysis
+pca_mut <- principle_component(dds_mut)
+pca_wt <- principle_component(dds_wt)
+pca_all <- principle_component(dds)
+```
+
+```{r}
+# Create a data frame that can used going forward from here on 
+count_mut_df <- cbind(mut,pca_mut$x)
+count_wt_df <- cbind(wt, pca_wt$x)
+count_all <- cbind(samples, pca_all$x)
+```
+
+```{r}
+mut_only <- count_all[rownames(mut),]
+wt_only <- count_all[rownames(wt),]
+```
+
+```{r}
+## Visualise the data here 
+ggplot(data = mut_only) +
+  geom_point(aes(x=PC7, y=PC8, colour = Group), size=5) +
+  theme_minimal() +
+  labs(x = 'PC1: 29% variance',
+       y = 'PC2: 23% varience') +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    axis.title.x = element_text(size = 15, vjust = 0.5),
+    axis.text.y = element_text(angle = 90, vjust = 0.5),
+    axis.title.y = element_text(size = 15, vjust = 0.5)
+  )
+```
+
+```{r echo=FALSE}
+
+# Perform differential gene expression analysis here
+dds <- DESeq(dds)
+dds_mut <- DESeq(dds_mut)
+dds_wt <- DESeq(dds_wt)
+```
+
+```{r}
+res <- results(dds)
+ress_mut <- results(dds_mut)
+res_wt <- results(dds_wt)
+```
+
+```{r}
+resultsNames(dds)
+resultsNames(dds_mut)
+resultsNames(dds_wt)
+```
+## Manganese effect on brain transcriptomics
+Extracting differentially expressed genes for different conditions allows us insight into the effects of manganese on brain transcriptomic landscape. An important question to answer is the combined effects of both the genotype and exposure on the transcription landscape of the zebrafish brain. Here I start by comparing the effect of Mn exposure by comparing the exposed WT to their unexposed counterparts. A sigificantly expressed gene is defined as one with an adjusted pvalue less than 0.05
+
+# A techincal note.
+Comparisions can be down by different approaches, here I chose ashr for shrinking the expression values. 
+
+```{r, echo=FALSE}
+## Set up group comparisions here 
+res_wt_mn <- results(dds, contrast = c('Group','wt_unexposed','wt_exposed'))
+res_wt_mn <- lfcShrink(dds, contrast = c('Group','wt_unexposed','wt_exposed'),  type = 'ashr')
+head(res_wt_mn)
+```
+
+```{r}
+# add a column to the data telling whether a gene is up, down or not significantly de
+new_data <- res_wt_mn %>%
+  as.data.frame() |>
+  mutate(differentialExpression = case_when(
+    padj < 0.05 & log2FoldChange > 0 ~ "UP",
+    padj < 0.05 & log2FoldChange < -0 ~ "DOWN",
+    TRUE ~ "NO"
+  )) |>
+  arrange(padj) 
+```
+# Effects of Mn and genotype
+To examine the changes in the transcriptome landscape of the mutant zebrafish, a comparison between unexposed and exposed mutants was run. 
+
+```{r}
+## Set up group comparisions here 
+res_mut_mn <- results(dds, contrast = c('Group','mut_unexposed','mut_exposed'))
+res_mut_mn <- lfcShrink(dds, contrast = c('Group','mut_unexposed','mut_exposed'),  type = 'ashr')
+head(res_mut_mn)
+```
+# Effects of the genotype alone on the transcriptome landascape
+To understand the changes in transcriptional landscape accountable to the mutation alone, a comparison of wt unexposed with the unexposed mutants revealed the changes accountable to the mutation alone
+
+```{r}
+mutation_only <- results(dds, contrast = c('Group','wt_unexposed','mut_unexposed'))
+mutation_only <- lfcShrink(dds, contrast = c('Group','wt_unexposed','mut_unexposed'),  type = 'ashr')
+head(mutation_only, 20)
+```
+
+# Perform some visualisation of the data here
+```{r}
+ggplot(data = new_data, aes(x = log2FoldChange, y = -log10(padj), col = differentialExpression, label = rownames(new_data))) +
+  geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
+  geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
+  geom_point(size = 2) + 
+  scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), # to set the colours of our variable  
+                     labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
+  coord_cartesian(ylim = c(0, 250), xlim = c(-10, 10)) + # since some genes can have minuslog10padj of inf, we set these limits
+  labs(color = 'Severe', #legend_title, 
+       x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
+  scale_x_continuous(breaks = seq(-10, 10, 2)) + # to customise the breaks in the x axis
+  ggtitle('Thf-like cells in severe COVID vs healthy patients') + # Plot title 
+  geom_text_repel(max.overlaps = Inf) # To show all labels 
+
+```
+

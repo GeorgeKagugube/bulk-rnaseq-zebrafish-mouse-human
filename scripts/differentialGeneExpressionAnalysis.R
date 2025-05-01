@@ -1,23 +1,17 @@
 ## Clear the environmental space here to start affresh 
+## Clear environmental space
 rm(list = ls())
 
-## Set up the analysis to run multiple cores, here we use 4 cores after removing lowely 
-# expressed genes
-library("BiocParallel")
-register(MulticoreParam(4))
-
 ## Set the directory with the expression datasets here 
-## Re-analysed samples with the new reference genome
 setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
 
-## This is the output folder for the final analysis
-output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/15-04-25/'
+# This is the output folder for the final analysis
+output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/21_04_25/'
 output_dir = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets'
 
 ## Source user defined files containing some useful functions here
 source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
 
-## Set up variables here 
 ## Read the mapped and quantified files into r for further analysis here 
 file1 <- "1_S1_ReadsPerGene.out.tab"
 dr <- '/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star'
@@ -34,11 +28,6 @@ samples <- read.csv("sample_information.csv", row.names = 1)
 head(countMatrix)
 head(samples, 15)
 
-
-## Optional drop the outliers samples here
-#samples <- samples[-c(2,12),]
-#countMatrix <- countMatrix[,-c(11,12)]
-
 ## Fix the column names in the count matrix to match the sample information rownames
 row_col_names <- as.vector(paste0("sample",rownames(samples)))
 rownames(samples) <- row_col_names
@@ -48,7 +37,7 @@ colnames(countMatrix) <- row_col_names
 # The lines below must return true for all
 # if false, please investigate the rownames match the countMatrix colnames
 all(row.names(samples) %in% colnames(countMatrix))
-all(row.names(samples) == colnames(countMatrix[,-c(11,12)]))
+all(row.names(samples) == colnames(countMatrix))
 
 # Split the data so that mutant and wt 
 # Mutant sample information
@@ -56,7 +45,6 @@ mut <- samples %>%
   filter(Genotype == "mutant") %>%
   dplyr::select(Group)
 
-mutt <- c(3,4,8,9,10,11)
 # Wild type sample information
 wt <- samples %>%
   filter(Genotype == "wt") %>%
@@ -64,11 +52,11 @@ wt <- samples %>%
 
 ## Split the matrix here to analyse each genotype seperately here
 # Mutant count matrix
-countMut <- countMatrix[,mutt]
+countMut <- countMatrix[,rownames(mut)]
 names(countMut)
 
 # WT countMatrix
-countWT <- countMatrix[,-mutt]
+countWT <- countMatrix[,rownames(wt)]
 
 # Check that all the rows and columns still match (sample rowname/count colnames)
 all(row.names(mut) %in% colnames(countMut))
@@ -80,7 +68,6 @@ all(row.names(wt) %in% colnames(countWT))
 mut$Group <- as.factor(mut$Group)
 wt$Group <- as.factor(wt$Group)
 samples$Group <- as.factor(samples$Group)
-samples$batch <- as.factor(samples$batch)
 
 # Build a DESeq2 object here. The count data is given as a metrix, column names
 # are the samples and the rownames are the Ensemble gene ids. This is important
@@ -102,15 +89,28 @@ dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
 keep <- rowSums(counts(dds)) >= 10
 dds <- dds[keep,]
 
+## Filter mutants here
+keep_mut <- rowSums(counts(dds_mut)) >= 10
+dds_mut <- dds_mut[keep_mut,]
+
+## Filter wild type data here
+keep_wt <- rowSums(counts(dds_wt)) >= 10
+dds_wt <- dds_wt[keep_wt,]
+
 ## Relevel the conditions here
 dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
+dds_mut$Group <- relevel(dds_mut$Group, ref = 'mut_unexposed')
+dds_wt$Group <- relevel(dds_wt$Group, ref = 'wt_unexposed')
+
 ## Perform some quality checks here. Use the developed function here. Input is the
 ## dds object and in some cases you need the sample_id as the function inputs expect
 ## check out the individual functions below in the environmnetal space
 ## calculate the pca values here
+#vsdmut <- vst(dds_mut)
+#vsdwt <- vst(dds_wt)
+vsd <- vst(dds)
 vsdmut <- vst(dds_mut)
 vsdwt <- vst(dds_wt)
-vsd <- vst(dds)
 
 ## Plot visualise the PCA
 plotPCA(vsd, intgroup="Group")
@@ -133,8 +133,8 @@ count_wt_df <- cbind(wt, pca_wt$x)
 count_all <- cbind(samples, pca_all$x)
 
 ## Visualise the data here 
-ggplot(data = count_all) +
-  geom_point(aes(x=PC1, y=PC2, colour = Group), size=5) +
+ggplot(data = mut_only) +
+  geom_point(aes(x=PC7, y=PC8, colour = Group), size=5) +
   theme_minimal() +
   labs(x = 'PC1: 29% variance',
        y = 'PC2: 23% varience') +
@@ -159,6 +159,10 @@ resultsNames(dds)
 resultsNames(dds_mut)
 resultsNames(dds_wt)
 
+## sET UP GROUP COMPARSIONS HERE 
+res <- results(dds_mut, name = 'Group_mut_exposed_vs_mut_unexposed')
+res <- lfcShrink(dds = dds_mut, coef = 2, type = 'apeglm')
+
 ## Set up group comparisions here 
 res_wt_mn <- results(dds, contrast = c('Group','wt_unexposed','wt_exposed'))
 res_wt_mn <- lfcShrink(dds, contrast = c('Group','wt_unexposed','wt_exposed'),  type = 'ashr')
@@ -175,13 +179,49 @@ mn_effect_mut <- lfcShrink(dds, contrast = c('Group','mut_unexposed', 'mut_expos
 mn_genotype_interaction <- results(dds, contrast = c('Group', 'wt_exposed', 'mut_exposed'))
 mn_genotype_interaction <- lfcShrink(dds, contrast = c('Group','wt_exposed', 'mut_exposed'),  type = 'ashr')
 
+## annotate the file before exporting them
+mn_genotype_interaction <- annot_data(mn_genotype_interaction)
+mn_effect_mut <- annot_data(mn_effect_mut)
+res_controls <- annot_data(res_controls)
+res_wt_mn <- annot_data(res_wt_mn)
 
-dge1 <- list('wt exposed' = wt,
-             'mut Exposed' = mut_wt)
+## Export the data 
+write.csv(mn_genotype_interaction,
+          file = paste0(output_folder,'genotype_exposure_interaction.csv'))
+
+res_wt_mn <- na.omit(res_wt_mn)
+mn_wt <- res |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  rownames()
+mn_mut <- mn_effect_mut |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  rownames()
+
+overlapping_genes <- as.vector(mn_mut[mn_wt%in%mn_mut])
+res[overlapping_genes,]
+
+head(zfin)
+
+interaction <- mn_genotype_interaction |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  rownames()
+
+controls <- res_controls |>
+  as.data.frame() |>
+  filter(padj < 0.05) |>
+  rownames()
+
+
+dge1 <- list('splitted' = mn_wt,
+             'combined' = mn_mut)
 ggvenn(dge1)
 
-dge2 <- list('wt exposed' = wt,
-             'mut exposed' = mutComb)
+dge2 <- list('wt exposed' = mn_wt,
+             'mut Exposed' = mn_mut,
+             'inter' = interaction)
 ggvenn(dge2)
 dge <- list('wt_mut' = rownames(lfc[lfc$padj < 0.05,]),
             'mut_exp' = rownames(resLFC_mut[resLFC_mut$padj < 0.05,]),

@@ -112,7 +112,6 @@ data_heatmap <- function(normalised_data, sample, lfc){
   colnames(mut_mat.z) <- sample$Group
   
   return(mut_mat.z)
-  
 }
 
 ## Plot a heatMap using this function
@@ -148,9 +147,8 @@ volcanoPlot <- function(df){
                             labSize = 8.5,
                             labFace = "plain",
                             title = 'DESeq2 results',
-                            subtitle = 'Differential expression',
-                            caption = 'FC cutoff, 1.333; p-value cutoff, 0.05',
-                            legendPosition = "right",
+                            caption = 'FC cutoff, 1.0; p-value cutoff, 0.05',
+                            #legendPosition = "right",
                             legendLabSize = 30,
                             pCutoff = 0.05,
                             FCcutoff = 1.0)
@@ -343,5 +341,7 @@ keggPathway <- function(data_frame, organism = 'dre', pathWay = 'dre04137'){
   return (knitr::include_graphics(paste0(pathWay,".pathview.png")))
 }  
 
-zfin <- read.delim("https://zfin.org/downloads/wildtype-expression_fish.txt",
-                   sep = '\t', header = FALSE)
+
+# Load data from zfin for ontology level analysis
+#zfin <- read.delim("https://zfin.org/downloads/wildtype-expression_fish.txt",
+#                   sep = '\t', header = FALSE)

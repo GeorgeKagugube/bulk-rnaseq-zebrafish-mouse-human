@@ -1,0 +1,219 @@
+---
+title: "Mn and nuerotoxicity"
+author: "George W Kagugube"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## Set the directory with the expression datasets here 
+setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
+
+#This is the output folder for the final analysis
+output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/21_04_25/'
+
+## Source user defined files containing some useful functions here
+source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+## Read the mapped and quantified files into r for further analysis here 
+file1 <- "1_S1_ReadsPerGene.out.tab"
+dr <- '/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star'
+
+## load the data into R for further analysis here 
+# This is output from star - these are files with ReadsPerGene.out.tab
+countMatrix <- staroutput_preprocessing(dr, file1)
+
+samples <- read.csv("sample_information.csv", row.names = 1)
+```
+## Check the top five rows of the two dataframes here
+```{r}
+
+## Explore the loaded data here
+print(head(countMatrix))
+print(head(samples, 15))
+
+## Fix the column names in the count matrix to match the sample information rownames
+row_col_names <- as.vector(paste0("sample",rownames(samples)))
+rownames(samples) <- row_col_names
+colnames(countMatrix) <- row_col_names
+```
+```{r}
+# if false, please investigate the rownames match the countMatrix colnames
+all(row.names(samples) %in% colnames(countMatrix))
+all(row.names(samples) == colnames(countMatrix))
+```
+
+```{r}
+# Split the data so that mutant and wt 
+# Mutant sample information
+mut <- samples %>%
+  filter(Genotype == "mutant") %>%
+  dplyr::select(Group)
+
+# Wild type sample information
+wt <- samples %>%
+  filter(Genotype == "wt") %>%
+  dplyr::select(Group) 
+
+## Split the matrix here to analyse each genotype seperately here
+# Mutant count matrix
+countMut <- countMatrix[,rownames(mut)]
+names(countMut)
+
+# WT countMatrix
+countWT <- countMatrix[,rownames(wt)]
+
+```
+
+```{r}
+## warning message in the next step
+mut$Group <- as.factor(mut$Group)
+wt$Group <- as.factor(wt$Group)
+samples$Group <- as.factor(samples$Group)
+```
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = as.matrix(countMatrix),
+                              colData = samples,
+                              design = ~ Group)
+
+dds_mut <- DESeqDataSetFromMatrix(countData = countMut,
+                                  colData = mut,
+                                  design = ~ Group)
+
+dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
+                                  colData = wt,
+                                  design = ~ Group)
+```
+
+```{r}
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+## Filter mutants here
+keep_mut <- rowSums(counts(dds_mut)) >= 10
+dds_mut <- dds_mut[keep_mut,]
+
+## Filter wild type data here
+keep_wt <- rowSums(counts(dds_wt)) >= 10
+dds_wt <- dds_wt[keep_wt,]
+```
+
+The reference condition here
+```{r}
+## Relevel the conditions here
+dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
+dds_mut$Group <- relevel(dds_mut$Group, ref = 'mut_unexposed')
+dds_wt$Group <- relevel(dds_wt$Group, ref = 'wt_unexposed')
+```
+
+```{r}
+vsd <- vst(dds)
+vsdmut <- vst(dds_mut)
+vsdwt <- vst(dds_wt)
+
+```
+
+```{r}
+## Plot visualise the PCA
+plotPCA(vsd, intgroup="Group")
+plotPCA(vsdmut, intgroup = 'Group')
+plotPCA(vsdwt, intgroup = 'Group')
+```
+
+```{r}
+## Normalise the count data
+all_norm_data <- normalisation_func(dds)
+mut_exposed <- normalisation_func(dds_mut)
+wt_exposed <- normalisation_func(dds_wt)
+```
+
+```{r}
+## calculate the principle component analysis
+pca_mut <- principle_component(dds_mut)
+pca_wt <- principle_component(dds_wt)
+pca_all <- principle_component(dds)
+```
+
+```{r}
+# Create a data frame that can used going forward from here on 
+count_mut_df <- cbind(mut,pca_mut$x)
+count_wt_df <- cbind(wt, pca_wt$x)
+count_all <- cbind(samples, pca_all$x)
+```
+
+```{r}
+mut_only <- count_all[rownames(mut),]
+wt_only <- count_all[rownames(wt),]
+```
+
+```{r}
+## Visualise the data here 
+ggplot(data = mut_only) +
+  geom_point(aes(x=PC7, y=PC8, colour = Group), size=5) +
+  theme_minimal() +
+  labs(x = 'PC1: 29% variance',
+       y = 'PC2: 23% varience') +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    axis.title.x = element_text(size = 15, vjust = 0.5),
+    axis.text.y = element_text(angle = 90, vjust = 0.5),
+    axis.title.y = element_text(size = 15, vjust = 0.5)
+  )
+```
+
+```{r Run DESeq 2, echo=FALSE}
+
+# Perform differential gene expression analysis here
+dds <- DESeq(dds)
+dds_mut <- DESeq(dds_mut)
+dds_wt <- DESeq(dds_wt)
+```
+
+```{r}
+res <- results(dds)
+ress_mut <- results(dds_mut)
+res_wt <- results(dds_wt)
+```
+
+```{r}
+resultsNames(dds)
+resultsNames(dds_mut)
+resultsNames(dds_wt)
+```
+## Manganese effect on brain transcriptomics
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
