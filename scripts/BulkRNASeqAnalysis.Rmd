@@ -289,6 +289,12 @@ dge_muation <- mutation_only |>
   arrange(desc(padj))
 ```
 
+# to extract the differentially expressed genes across the 
+```{r}
+
+
+```
+
 # Generate the venn diagrams here
 ```{r}
 dge <- list('WT' = rownames(dge_wt),

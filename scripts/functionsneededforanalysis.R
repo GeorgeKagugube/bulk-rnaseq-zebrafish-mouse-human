@@ -160,7 +160,7 @@ volcanoPlot <- function(df){
 venPlot <- function(dgeset){
   p3 <- ggvenn(dgeset, 
                set_name_size = 10, 
-               text_size = 10,
+               text_size = 7.5,
                fill_alpha = 0.25,
                stroke_size = 1.5,
                show_outside = "auto")
