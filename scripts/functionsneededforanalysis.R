@@ -133,7 +133,7 @@ data_heatmap <- function(normalised_data, sample, lfc){
 #'          signs: a dataframe of selected gens from the DGE analysis
 #' 
 figure_heatmap <- function(data_frame, sigs){
-  plot1 <- Heatmap(data_frame[rownames(signs),], name = "Z - Score", row_km = 2, column_km = 2,row_labels = rownames(sigs),
+  plot1 <- Heatmap(data_frame[rownames(sigs),], name = "Z - Score", row_km = 2, column_km = 2,row_labels = rownames(sigs),
                    column_labels = colnames(data_frame),
                    #top_annotation = HeatmapAnnotation(data_frame = 1:dim(data_frame)[2]) #, bar1 = anno_points(runif(dim(data_frame)[2]))),
                    #right_annotation = rowAnnotation(data_frame = dim(data_frame[rownames(signs),])[1]:1, 
@@ -172,7 +172,7 @@ addDirectionlabel <- function(dataset) {
 #' 
 vPlot <- function(dataset){
   plot1 <- ggplot(data = dataset, aes(x = log2FoldChange, y = -log10(padj), 
-                                      col = differentialExpression, label = symbols)) +
+                                      col = diffExpression, label = symbols)) +
     geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
     geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
     geom_point(size = 2) + 
@@ -183,6 +183,8 @@ vPlot <- function(dataset){
          x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
     scale_x_continuous(breaks = seq(-7, 7, 2)) + # to customise the breaks in the x axis
     geom_text_repel()
+  
+  return(plot1)
 }
 
 ####### valcano plots
@@ -252,7 +254,7 @@ creategenelist <- function(dge_data_set, analysis = 'gsea'){
 
   ## Generate names depending on the type of anlysis
   if (analysis == 'gsea'){
-    names(gse_gene_list) <- dge_data_set$X 
+    names(gse_gene_list) <- dge_data_set$symbols 
     
   } else if (analysis == 'other'){
     names(gse_gene_list) <- dge_data_set$entrezid
@@ -311,7 +313,7 @@ rungseondata <- function(geneList, ONT = 'all'){
   gse <- gseGO(
     geneList = geneList,
     ont = ONT,
-    keyType = 'SYMBOL',
+    keyType = 'ENTREZID',
     minGSSize = 3,
     maxGSSize = 250,
     eps = 0,
