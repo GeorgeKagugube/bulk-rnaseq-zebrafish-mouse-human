@@ -182,7 +182,7 @@ vPlot <- function(dataset){
     labs(color = 'Severe', #legend_title, 
          x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
     scale_x_continuous(breaks = seq(-7, 7, 2)) + # to customise the breaks in the x axis
-    geom_text_repel()
+    geom_text_repel(max.overlaps=Inf)
   
   return(plot1)
 }
@@ -270,7 +270,7 @@ creategenelist <- function(dge_data_set, analysis = 'gsea'){
 }
 
 ## Create a list of genes for ORA 
-oragenelist <- function(dge_data_set, padj = 0.05, basemean = 50){
+oragenelist <- function(dge_data_set, padj = 0.05, logFC = 1){
   
   #' @title ORA Gene list
   #' _____________________
@@ -289,7 +289,7 @@ oragenelist <- function(dge_data_set, padj = 0.05, basemean = 50){
   #' ______________________
   #' @example oregenelist.R.
   
-  ora_gene_list <- na.omit(dge_data_set[(dge_data_set$baseMean > basemean & dge_data_set$padj < padj),])
+  ora_gene_list <- na.omit(dge_data_set[(abs(dge_data_set$log2FoldChange) > logFC & dge_data_set$padj < padj),])
   gene_list <- rownames(ora_gene_list)
 
   return(gene_list)
@@ -298,7 +298,7 @@ oragenelist <- function(dge_data_set, padj = 0.05, basemean = 50){
 ## Create a gene universe to use as the background for the GO term analysis 
 gene_universe <- function (dge_data_set, key = 'symbol'){
   if (key == 'symbol'){
-    gene_uni <- na.omit(dge_data_set$x)
+    gene_uni <- na.omit(rownames(dge_data_set))
   } else {
     gene_uni <- na.omit(dge_data_set$entrezid)
   }
@@ -313,7 +313,7 @@ rungseondata <- function(geneList, ONT = 'all'){
   gse <- gseGO(
     geneList = geneList,
     ont = ONT,
-    keyType = 'ENTREZID',
+    keyType = 'SYMBOL',
     minGSSize = 3,
     maxGSSize = 250,
     eps = 0,
@@ -327,11 +327,12 @@ rungseondata <- function(geneList, ONT = 'all'){
 
 ## The difference partly between Over representation analysis and gene set enrichment
 ## analysis is the 
-oraFunc <- function (gene_list, ONT = "ALL") {
+oraFunc <- function (gene_list, background, ONT = "ALL") {
   go_enrich <- enrichGO(gene = gene_list,
                         OrgDb = "org.Dr.eg.db", 
-                        keyType = 'ENTREZID',
+                        keyType = 'SYMBOL',
                         ont = ONT,
+                        universe = background,
                         pvalueCutoff = 0.05,
                         pAdjustMethod = "fdr",
                         qvalueCutoff = 0.10)

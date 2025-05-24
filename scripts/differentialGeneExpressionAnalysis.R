@@ -6,7 +6,7 @@ rm(list = ls())
 setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/Brain/GZ11_star_output/star')
 
 # This is the output folder for the final analysis
-output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/21_04_25/'
+output_folder = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files/'
 output_dir = '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets'
 
 ## Source user defined files containing some useful functions here
@@ -74,7 +74,7 @@ samples$Group <- as.factor(samples$Group)
 # The design contains what makes up the model (negatve bionimial model in this case)
 dds <- DESeqDataSetFromMatrix(countData = as.matrix(countMatrix),
                               colData = samples,
-                              design = ~ Genotype + Treatment + Genotype:Treatment)
+                              design = ~ Group)
 
 dds_mut <- DESeqDataSetFromMatrix(countData = countMut,
                                  colData = mut,
@@ -86,55 +86,35 @@ dds_wt <- DESeqDataSetFromMatrix(countData = as.matrix(countWT),
 
 ##Although filtering with DESeq is not reccomended, here we remove all genes whose
 ## row sum is less than 10
-#keep <- rowSums(counts(dds)) >= 10
-#dds <- dds[keep,]
-
-## Filter mutants here
-#keep_mut <- rowSums(counts(dds_mut)) >= 10
-#dds_mut <- dds_mut[keep_mut,]
-
-## Filter wild type data here
-#keep_wt <- rowSums(counts(dds_wt)) >= 10
-#dds_wt <- dds_wt[keep_wt,]
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
 
 ## Relevel the conditions here
 #dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
-#dds_mut$Group <- relevel(dds_mut$Group, ref = 'mut_unexposed')
-#dds_wt$Group <- relevel(dds_wt$Group, ref = 'wt_unexposed')
+dds$Group <- relevel(dds$Group, ref = 'mut_unexposed')
 
 ## Perform some quality checks here. Use the developed function here. Input is the
 ## dds object and in some cases you need the sample_id as the function inputs expect
 ## check out the individual functions below in the environmnetal space
 ## calculate the pca values here
-#vsdmut <- vst(dds_mut)
-#vsdwt <- vst(dds_wt)
 vsd <- vst(dds)
-vsdmut <- vst(dds_mut)
-vsdwt <- vst(dds_wt)
 
 ## Plot visualise the PCA
-plotPCA(vsd, intgroup="Treatment")
-#plotPCA(vsdmut, intgroup = 'Group')
-#plotPCA(vsdwt, intgroup = 'Group')
+plotPCA(vsd, intgroup="Group")
+
 
 ## Normalise the count data
 all_norm_data <- normalisation_func(dds)
-mut_exposed <- normalisation_func(dds_mut)
-wt_exposed <- normalisation_func(dds_wt)
 
 ## calculate the principle component analysis
-#pca_mut <- principle_component(dds_mut)
-#pca_wt <- principle_component(dds_wt)
 pca_all <- principle_component(dds)
   
 # Create a data frame that can used going forward from here on 
-#count_mut_df <- cbind(mut,pca_mut$x)
-#count_wt_df <- cbind(wt, pca_wt$x)
 count_all <- cbind(samples, pca_all$x)
 
 ## Visualise the data here 
 ggplot(data = count_all) +
-  geom_point(aes(x=PC7, y=PC8, colour = Group), size=5) +
+  geom_point(aes(x=PC1, y=PC2, colour = Treatment), size=5) +
   theme_minimal() +
   labs(x = 'PC1: 29% variance',
        y = 'PC2: 23% varience') +
@@ -146,12 +126,14 @@ ggplot(data = count_all) +
     axis.title.y = element_text(size = 15, vjust = 0.5)
   )
   
-## Perform differential gene expression analysis here
+## Perform differenPC10## Perform differential gene expression analysis here
 dds <- DESeq(dds)
 #dds_mut <- DESeq(dds_mut)
 #dds_wt <- DESeq(dds_wt)
 
 res <- results(dds)
+res
+summary(res)
 # ress_mut <- results(dds_mut)
 # res_wt <- results(dds_wt)
 
@@ -160,60 +142,77 @@ resultsNames(dds)
 # resultsNames(dds_wt)
 
 ## Genotype specific changes
-genotype <- results(dds, name =  "Genotype_wt_vs_mutant")
-genotype <- lfcShrink(dds = dds, coef = 2, type = 'apeglm')
+## These are changes seen just be the mutation without the 
+## Only the unexposed are explored thereby picking up changes araising from the mutation without the exposure
+mutation_specific <- results(dds, name =  "Group_mut_unexposed_vs_wt_unexposed")
+mutation_specific <- lfcShrink(dds = dds, coef = 3, type = 'apeglm')
 
 ## Maganese responsiveness changes
-treatment <- results(dds, name = "Treatment_unexposed_vs_exposed")
-treatment <- lfcShrink(dds = dds, coef = 3, type = 'apeglm')
+## These are changes seen when WT are exposed to Mn
+treatment <- results(dds, name = "Group_wt_exposed_vs_wt_unexposed")
+treatment <- lfcShrink(dds = dds, coef = 4, type = 'apeglm')
 
 ## Interaction between treatment and genotype
-interactions <- results(dds, name = "Genotypewt.Treatmentunexposed")
-interactions <- lfcShrink(dds = dds, coef = 4, type = "apeglm")
+## These are comparing unexposed WT with exposed mutations
+interactions <- results(dds, name = "Group_mut_exposed_vs_wt_unexposed")
+interactions <- lfcShrink(dds = dds, coef = 2, type = 'apeglm')
 
-summary(genotype)
+## Effect of mutation (wt_unexposed vs mutant unexposed)
+mutation_specific_changes <- results(dds, name = "Group_mut_exposed_vs_mut_unexposed")
+mutation_specific_changes <- lfcShrink(dds = dds, coef = 2, type = 'apeglm')
+
+summary(mutation_specific_changes)
 
 
 ## Annotate dataframes with artificial columns here
-geno <- addDirectionlabel(genotype)
-treat <- addDirectionlabel(treatment)
-inter <- addDirectionlabel(interactions)
-
-## Export the data 
-write.csv(geno,
-          file = paste0(output_folder,'genotype_specific_changes.csv'))
-
-write.csv(treat,
-          file = paste0(output_folder,'exposure_specific_changes.csv'))
-
-write.csv(inter,
-          file = paste0(output_folder,'genotype_treament_interactions.csv'))
+mutation_specific <- addDirectionlabel(mutation_specific)
+treatment <- addDirectionlabel(treatment)
+interactions <- addDirectionlabel(interactions)
+mutation_specific_changes <- addDirectionlabel(mutation_specific_changes)
 
 
-## Annotate dataframes with entrezi_ids
-anotated_interactions <- annot_data(geno)
-anotated_treatment <- annot_data(treatment)
-anotated_genotype <- annot_data(genotype)
+## Annotate the datasets with entrezid IDs
+mutation_specific <- annot_data(mutation_specific)
+treatment <- annot_data(treatment)
+interactions <- annot_data(interactions)
+mutation_specific_changes <- annot_data(mutation_specific_changes)
 
-## Generate Volcano plots here 
-vPlot(geno)
-vPlot(treat)
-vPlot(inter)
+## Remove all genes/transcripts that are not annotated in the reference genome 
+## Remove genes without annotation in zdfin
+mutation_specific <- mutation_specific[!grepl('LOC', rownames(norm_data)), ]
+treatment <- treatment[!grepl('LOC', rownames(treatment)), ]
+interactions <- interactions[!grepl('LOC', rownames(interactions)), ]
+mutation_specific_changes <- mutation_specific_changes[!grepl('LOC', rownames(mutation_specific_changes)), ]
+
+
+## Export the data for sharing and further analysis/visualisation
+write.csv(mutation_specific,
+          file = paste0(output_folder,'mut_unexposed_vs_wt_unexposed.csv'))
+
+write.csv(treatment,
+          file = paste0(output_folder,'wt_exposed_vs_wt_unexposed.csv'))
+
+write.csv(interactions,
+          file = paste0(output_folder,'wt_unexposed_vs_mut_exposed.csv'))
+
+write.csv(mutation_specific_changes,
+          file = paste0(output_folder,'mut_exposed_vs_mut_unexposed.csv'))
 
 ## Generate Ven daigrams
+set1 <- sig_gene_names(mutation_specific)
+set2 <- sig_gene_names(treatment)
+set3 <- sig_gene_names(interactions) 
+set4 <- sig_gene_names(mutation_specific_changes)
 
-mn_treatment <- sig_gene_names(treat)
-genotype_effect <- sig_gene_names(geno)
-inte <- sig_gene_names(inter) 
-
-dge1 <- list('Exposed' = mn_treatment,
-             'Genotype' = genotype_effect)
+dge1 <- list('Mutation' = set1,
+             'Exposure' = set2)
 ggvenn(dge1)
+venPlot(dge1)
 
-dge2 <- list('Exposed' = mn_treatment,
-             'Genotype' = genotype_effect,
-             'inter' = inte)
-ggvenn(dge1)
+dge2 <- list('Mutation' = set1,
+             'Exposure' = set2,
+             'CombinedEffect' = set4)
+venPlot(dge2)
 dge <- list('wt_mut' = rownames(lfc[lfc$padj < 0.05,]),
             'mut_exp' = rownames(resLFC_mut[resLFC_mut$padj < 0.05,]),
             'wt_expo' = rownames(resLFC_wt[resLFC_wt$padj < 0.05,]))
