@@ -69,6 +69,9 @@ mut$Group <- as.factor(mut$Group)
 wt$Group <- as.factor(wt$Group)
 samples$Group <- as.factor(samples$Group)
 
+write.csv(samples,
+          '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/normalised_data_sets/sample_information')
+
 # Build a DESeq2 object here. The count data is given as a metrix, column names
 # are the samples and the rownames are the Ensemble gene ids. This is important
 # The design contains what makes up the model (negatve bionimial model in this case)
@@ -161,9 +164,6 @@ interactions <- lfcShrink(dds = dds, coef = 2, type = 'apeglm')
 mutation_specific_changes <- results(dds, name = "Group_mut_exposed_vs_mut_unexposed")
 mutation_specific_changes <- lfcShrink(dds = dds, coef = 2, type = 'apeglm')
 
-summary(mutation_specific_changes)
-
-
 ## Annotate dataframes with artificial columns here
 mutation_specific <- addDirectionlabel(mutation_specific)
 treatment <- addDirectionlabel(treatment)
@@ -179,7 +179,7 @@ mutation_specific_changes <- annot_data(mutation_specific_changes)
 
 ## Remove all genes/transcripts that are not annotated in the reference genome 
 ## Remove genes without annotation in zdfin
-mutation_specific <- mutation_specific[!grepl('LOC', rownames(norm_data)), ]
+mutation_specific <- mutation_specific[!grepl('LOC', rownames(mutation_specific)), ]
 treatment <- treatment[!grepl('LOC', rownames(treatment)), ]
 interactions <- interactions[!grepl('LOC', rownames(interactions)), ]
 mutation_specific_changes <- mutation_specific_changes[!grepl('LOC', rownames(mutation_specific_changes)), ]
@@ -197,104 +197,3 @@ write.csv(interactions,
 
 write.csv(mutation_specific_changes,
           file = paste0(output_folder,'mut_exposed_vs_mut_unexposed.csv'))
-
-## Generate Ven daigrams
-set1 <- sig_gene_names(mutation_specific)
-set2 <- sig_gene_names(treatment)
-set3 <- sig_gene_names(interactions) 
-set4 <- sig_gene_names(mutation_specific_changes)
-
-dge1 <- list('Mutation' = set1,
-             'Exposure' = set2)
-ggvenn(dge1)
-venPlot(dge1)
-
-dge2 <- list('Mutation' = set1,
-             'Exposure' = set2,
-             'CombinedEffect' = set4)
-venPlot(dge2)
-dge <- list('wt_mut' = rownames(lfc[lfc$padj < 0.05,]),
-            'mut_exp' = rownames(resLFC_mut[resLFC_mut$padj < 0.05,]),
-            'wt_expo' = rownames(resLFC_wt[resLFC_wt$padj < 0.05,]))
-levels(samples$Group)
-samples$Group <- ordered(samples$Group,
-                   levels = c('wt_unexposed','wt_exposed',
-                              'mut_unexposed','mut_exposed'))
-## Overlapping genes between
-overlap_genes <- mn_treatment[mn_treatment %in% genotype_effect]
-over_genes <- treat[overlap_genes,]
-over_genes <- over_genes |>
-  arrange(padj)
-## Generate heatmaps here 
-max_genes = 40
-## Signifacnt genes 
-signifcant_genes <- sig_gene(inter)[1:max_genes,]
-heatmap_mtx <- data_heatmap(mut_exposed, sample = wt, lfc = inter)[1:max_genes,]
-
-## Figure drwan here
-figure_heatmap(heatmap_mtx, signifcant_genes)
-
-## Annotate dataframes with entrezi_ids
-anotated_interactions <- annot_data(geno)
-anotated_treatment <- annot_data(treatment)
-anotated_genotype <- annot_data(genotype)
-
-## GO AND KEGG pathway analysis
-inter_gene_list <- creategenelist(anotated_interactions)
-geno_gene_list <- creategenelist(anotated_genotype, analysis = 'other')
-treat_gene_list <- creategenelist(anotated_treatment, analysis = 'other')
-
-##
-go_inter <- rungseondata(geno_gene_list)
-go_inter |>
-  as.data.frame() |>
-  filter(ONTOLOGY == 'BP') |>
-  select('ONTOLOGY', 'Description', 'NES','qvalue') |>
-  arrange(NES) |>
-  head(40)
-  
-endoplasmic %in% go_inter$Description 
-## Visualise these data
-dotplot(go_inter, showCategory=20)
-
-wt[wt %in% mutComb]
-ggvenn(dge)
-
-res05 <- results(dds_wt, alpha=0.05)
-summary(res05)
-res05[res05$padj < 0.05]
-res05 %>%
-  filter(padj < 0.05)
-
-## Export data to a csv file for further analysis and inspection later
-## Export the data 
-#write.csv(resLFC,
-#          file = paste0(output_folder,'Group_mut_exposed_vs_mut_unexposed.csv'))
-
-
-# ## sET UP GROUP COMPARSIONS HERE 
-# res <- results(dds_mut, name = 'Group_mut_exposed_vs_mut_unexposed')
-# res <- lfcShrink(dds = dds_mut, coef = 2, type = 'apeglm')
-# 
-# ## Set up group comparisions here 
-# res_wt_mn <- results(dds, contrast = c('Group','wt_unexposed','wt_exposed'))
-# res_wt_mn <- lfcShrink(dds, contrast = c('Group','wt_unexposed','wt_exposed'),  type = 'ashr')
-# 
-# ## Baseline mutant effect on transcriptomics
-# res_controls <- results(dds, contrast = c('Group', 'wt_unexposed','mut_unexposed'))
-# res_controls <- lfcShrink(dds, contrast = c('Group', 'wt_unexposed','mut_unexposed'),  type = 'ashr')
-# 
-# ## Manganese effect in mutant
-# mn_effect_mut <- results(dds, contrast = c('Group','mut_unexposed', 'mut_exposed'))
-# mn_effect_mut <- lfcShrink(dds, contrast = c('Group','mut_unexposed', 'mut_exposed'),  type = 'ashr')
-# 
-# ## Interaction between genotype and manganese
-# mn_genotype_interaction <- results(dds, contrast = c('Group', 'wt_exposed', 'mut_exposed'))
-# mn_genotype_interaction <- lfcShrink(dds, contrast = c('Group','wt_exposed', 'mut_exposed'),  type = 'ashr')
-# 
-# ## annotate the file before exporting them
-# mn_genotype_interaction <- annot_data(mn_genotype_interaction)
-# mn_effect_mut <- annot_data(mn_effect_mut)
-# res_controls <- annot_data(res_controls)
-# res_wt_mn <- annot_data(res_wt_mn)
-

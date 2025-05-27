@@ -258,8 +258,8 @@ creategenelist <- function(dge_data_set, analysis = 'gsea'){
     
   } else if (analysis == 'other'){
     names(gse_gene_list) <- dge_data_set$entrezid
+
   }                                               
-  
   ## Remove any missing values in the gene list
   gene_list <- na.omit(gse_gene_list)###########
   
@@ -335,16 +335,16 @@ oraFunc <- function (gene_list, background, ONT = "ALL") {
                         universe = background,
                         pvalueCutoff = 0.05,
                         pAdjustMethod = "fdr",
-                        qvalueCutoff = 0.10)
+                        qvalueCutoff = 0.05)
   return(go_enrich)
 }
 
 
 ## KEGG and Reactome Pathway analyses
 ## KEGG
-pathway_ont <- function(genelist, mode = "gse"){
+pathway_ont <- function(gene_list, mode = "gse"){
     kk <- gseKEGG(geneList = gene_list,
-                  keyType = 'kegg',
+                  keyType = 'ncbi-geneid',
                   organism = 'dre',
                   minGSSize = 3,
                   maxGSSize = 1000,
