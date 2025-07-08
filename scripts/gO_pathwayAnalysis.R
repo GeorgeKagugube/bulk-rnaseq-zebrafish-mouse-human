@@ -1,6 +1,8 @@
 ## Clear the global environment space 
 rm(list = ls())
 
+set.seed(101)
+
 ## Load the file with all the required libraries here
 source("/Users/gwk/Desktop/Bioinformatics/BulkRNA_Analysis/functionsneededforanalysis.R")
 source("/Users/gwk/Desktop/Bioinformatics/BulkRNA_Analysis/visualisationFunctions.R")
@@ -13,10 +15,7 @@ setwd('/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/DGE_Files
 output_dir <- '/Users/gwk/Desktop/PhD/Data/PhD_data/March_03_25_Final_Analysis/gene_ontology_analysis'
 
 ## Load the datasets to be analysed here (these are dge files)
-mut_expo <- read.csv('mut_exposed_vs_mut_unexposed.csv')
-mut_wt <- read.csv('mut_unexposed_vs_wt_unexposed_all.csv')
-wt_expo <- read.csv('wt_exposed_vs_wt_unexposed.csv')
-mut_wt_all <- read.csv('mut_exposed_vs_wt_unexposed_all.csv') 
+
 
 ## Zfin data
 zfin <- read.delim("https://zfin.org/downloads/wildtype-expression_fish.txt",
@@ -27,7 +26,7 @@ zfin <- zfin %>%
   select(2,3,5,8)
 
 ## Merge the two dataframes here 
-df <- merge(x=mut_expo, y=zfin, by = 'X')
+df <- merge(x=df, y=zfin, by = 'X')
 
 df %>%
   filter(padj < 0.05)
@@ -37,12 +36,84 @@ head(mut_expo)
 str(mut_expo)
 
 mut_expo[mut_expo$X == 'bcl2a',]
+treat <- treatment |>
+  as.data.frame() |>
+  select(8,7,2) |>
+  drop_na()
 
-gene_list <- creatgenelist(mut_expo, analysis = 'other')
+# Define a palette
+mypalette <- brewer.pal(3, "YlOrRd")
 
-## Run fgsea
+## Mn exposure effectes
+## GSEA Analysis
+df = treatment
+gene_list <- creategenelist(df)#  creatgenelist(treatment, analysis = 'other')
 gse <- rungseondata(geneList = gene_list)
-pont <- pathway_ont(genelist = gene_list, mode = 'gsea')
+write.csv(gse,
+          file = paste0(output_dir,'/mutantEffects/gseaanalysis.csv'))
+
+## Visualisation
+gdd <- gse |>
+  as.data.frame() |>
+  filter(ONTOLOGY == 'MF' & NES > 0) |>
+  arrange(desc(NES))
+
+## Visualisation
+ggplot(gdd) +
+  geom_point(aes(x = NES, y = Description, color = -log10(p.adjust), 
+                 size = setSize)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=rel(2.15), face = 'bold'),
+        axis.title = element_text(size=rel(2.15)),
+        axis.text.y = element_text(size=rel(1.5), face = 'bold')) +
+  xlab("Gene ratios") +
+  ylab("Top 30 significant GO terms") +
+  ggtitle("Dotplot of top 30 significant GO terms") +
+  theme(plot.title = element_text(hjust=0.5,face = "bold")) +
+  scale_color_gradientn(name = "-log10(padj)", colors = mypalette) +
+  theme(legend.title = element_text(size=rel(1.15), hjust=0.5, face="bold"))
+
+## Run KEGG Pathway analysis here 
+df2 <- df |>
+  select(7,8,2) |>
+  drop_na()
+kegg_list <- creategenelist(df2, analysis = 'other')
+kegg_organism = "dre"
+kk2 <- gseKEGG(geneList     = kegg_list,
+               organism     = kegg_organism,
+               nPerm        = 10000,
+               minGSSize    = 3,
+               maxGSSize    = 800,
+               pvalueCutoff = 0.05,
+               pAdjustMethod = "none",
+               keyType       = "ncbi-geneid")
+write.csv(kk2,
+          file = paste0(output_dir,'/mutantEffects/kegg_pathway_analysis.csv'))
+bp_plot <- kk2 |>
+  as.data.frame() |>
+  filter(NES < 0) |>
+  arrange(desc(NES))  
+
+ggplot(bp_plot) +
+  geom_point(aes(x = NES, y = Description, color = -log10(p.adjust), 
+             size = setSize)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=rel(1.15)),
+        axis.title = element_text(size=rel(1.15))) +
+  xlab("Gene ratios") +
+  ylab("Top 30 significant GO terms") +
+  ggtitle("Dotplot of top 30 significant GO terms") +
+  theme(axis.text.x = element_text(size=rel(2.15), face = 'bold'),
+        axis.title = element_text(size=rel(2.15)),
+        axis.text.y = element_text(size=rel(1.5), face = 'bold')) +
+  scale_color_gradientn(name = "Significance \n (-log10(padj))", colors = mypalette) +
+  theme(legend.title = element_text(size=rel(1.15),
+                                    hjust=0.5, 
+                                    face="bold"))
+
+
+dotplot(kk2, showCategory = 10)#, title = "Enriched Pathways" , split=".sign") + facet_grid(.~.sign)
+emapplot(kk2)
 gse_dataframe <- as.data.frame(gse)
 
 gseGO_gene_name_decoding(as.data.frame(pont), 'Calcium')
@@ -59,13 +130,13 @@ gse_simplifeid_dataframe <- as.data.frame(gse_simplifeid)
 
 ## Generate a dot plot here 
 dotplot(gse_simplifeid, showCategory = 10) +#, split = '.sign') +
-  #facet_grid(.~.sign) +
+  facet_grid(.~.sign) 
   theme(axis.text.x =element_text(angle =45, hjust = 1),
         axis.text.y = element_text(angle = 45, size = 10))
 
 ## Create the cnet plot here
-cnetplot(gse_simplifeid, categorySize = 'pvalue',
-         foldChange = gene_list, showCategory = 1)
+cnetplot(gse, categorySize = 'pvalue',
+         foldChange = gene_list, showCategory = 2)
 
 ## Create a heatmap 
 p1 <- heatplot(gse_simplifeid, showCategory = 2)
@@ -121,7 +192,7 @@ df <- as.data.frame(setReadable(gse_all,
 write.csv(df, file = "Eyes_WT_goterms.csv")
 
 ### kegg pathway analysis
-pathway_analysis <- pathway_ont(genelist = gse_kegg_gene_list)
+pathway_analysis <- pathway_ont(genelist = gene_list)
 
 ## Visualise the data 
 dotplot(pathway_analysis, showCategory = 20)
@@ -180,3 +251,29 @@ makeSPIAdata(kgml.path=system.file("extdata/keggxml/dre",package="SPIA"),organis
 makeSPIAdata(kgml.path="./dre",organism="dre",out.path=".")
 
 spia_result <- spia(de=gse_kegg_gene_list, all=background, organism="dre")
+
+
+#### Visualisation of the data
+c.chaperones <- c('hspa5', 'hsp90b1','calr3a','canx')
+head(all_norm_data)
+er.stress <- all_norm_data[c.chaperones,]
+colnames(er.stress) <- samples$Group
+
+er.stress <- er.stress |>
+  t() |>
+  as.data.frame() 
+er.stress['Samples'] <- rownames(er.stress)  
+er.stress$Samples <- gsub("\\.\\d+$", "", er.stress$Samples)
+attach(er.stress)
+er.stress$Samples <- as.factor(er.stress$Samples)
+
+my_comparisons <- list(c('wt_unexposed', 'wt_exposed'), c('mut_unexposed', 'mut_exposed'), 
+                       c('wt_unexposed', 'mut_exposed'))
+
+ggplot(er.stress, aes(x=Samples, y=calr3a, colour = Samples)) + 
+    geom_dotplot(binaxis='y', stackdir='center') +
+    theme_classic() +
+    theme(axis.text.y = element_text(size = 15, face = 'bold')) +
+    stat_compare_means(comparisons = my_comparisons, label = "p.signif")
+
+gse_simplifeid  

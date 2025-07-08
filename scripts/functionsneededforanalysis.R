@@ -113,10 +113,7 @@ sig_gene_names <- function(datafframe) {
 #' @param sample data frame containing sample information used to build DESeq2 object
 #' @param lfc log2foldchange (shrunk) dataset, needed to extract significant genes
 #' 
-data_heatmap <- function(normalised_data, sample, lfc){
-  sig_df <- sig_gene(lfc)
-  ## Return the z-score of the matrix here
-  normalised_data <- normalised_data[rownames(sig_df),]
+data_heatmap <- function(normalised_data, sample){
   mut_mat.z <- t(apply(normalised_data, 1, scale))
   colnames(mut_mat.z) <- sample$Group
   
@@ -133,7 +130,8 @@ data_heatmap <- function(normalised_data, sample, lfc){
 #'          signs: a dataframe of selected gens from the DGE analysis
 #' 
 figure_heatmap <- function(data_frame, sigs){
-  plot1 <- Heatmap(data_frame[rownames(sigs),], name = "Z - Score", row_km = 2, column_km = 2,row_labels = rownames(sigs),
+  valid_rows <- intersect(rownames(sigs), rownames(data_frame))
+  plot1 <- Heatmap(data_frame[valid_rows,], name = "Z - Score", row_km = 2, column_km = 2,row_labels = valid_rows,
                    column_labels = colnames(data_frame),
                    #top_annotation = HeatmapAnnotation(data_frame = 1:dim(data_frame)[2]) #, bar1 = anno_points(runif(dim(data_frame)[2]))),
                    #right_annotation = rowAnnotation(data_frame = dim(data_frame[rownames(signs),])[1]:1, 
@@ -163,50 +161,33 @@ addDirectionlabel <- function(dataset) {
   return(mutated_dataset)
 }
 
-## Another version of a volcano plot
-#' A volcano plot using ggplot
-#' @description
-#' Function that returns a volcano plot of the datasets compared
-#' 
-#' @param dataset A data set that 
-#' 
-vPlot <- function(dataset){
-  plot1 <- ggplot(data = dataset, aes(x = log2FoldChange, y = -log10(padj), 
-                                      col = diffExpression, label = symbols)) +
-    geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
-    geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
-    geom_point(size = 2) + 
-    scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), # to set the colours of our variable  
-                       labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
-    coord_cartesian(ylim = c(0, 15), xlim = c(-10, 10)) + # since some genes can have minuslog10padj of inf, we set these limits
-    labs(color = 'Severe', #legend_title, 
-         x = expression("log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
-    scale_x_continuous(breaks = seq(-7, 7, 2)) + # to customise the breaks in the x axis
-    geom_text_repel(max.overlaps=Inf)
-  
-  return(plot1)
-}
 
 ####### valcano plots
-volcanoPlot <- function(df){
-  plot_1 <- EnhancedVolcano(df,
-                            lab = rownames(df),
-                            x = 'log2FoldChange',
-                            y = 'pvalue',
-                            axisLabSize = 30,
-                            xlim = c(-3, 3),
-                            ylim = c(0, 30),
-                            pointSize = 2.0,
-                            labSize = 8.5,
-                            labFace = "plain",
-                            title = 'DESeq2 results',
-                            caption = 'FC cutoff, 1.0; p-value cutoff, 0.05',
-                            #legendPosition = "right",
-                            legendLabSize = 30,
-                            pCutoff = 0.05,
-                            FCcutoff = 1.0)
+volcanoPlot <- function(df, noGenes, xlimlimit = c(-8, 8), ylimlimit = c(0, 25)) {
+  df$delabel <- ifelse(df$symbols %in% head(df[order(df$padj), "symbols"], 50), df$symbols, NA)
   
-  return(plot_1)
+  myvolcanoplot <- ggplot(data = df, aes(x = log2FoldChange, y = -log10(padj), col = diffExpression, label = delabel)) +
+    geom_vline(xintercept = c(-0.5, 0.5), col = "gray", linetype = 'dashed') +
+    geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
+    geom_point(size = 3) + 
+    scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), # to set the colours of our variable  
+                       labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
+    coord_cartesian(ylim = ylimlimit, xlim = xlimlimit) + # since some genes can have minuslog10padj of inf, we set these limits
+    labs(color = 'Severe', #legend_title, 
+         x = expression("Log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
+    scale_x_continuous(breaks = seq(-10, 10, 2)) + # to customise the breaks in the x axis
+    #geom_text_repel(max.overlaps = Inf) + # To show all labels 
+    geom_label_repel(label.size = 0.5) +
+    theme_classic(base_size = 30) +
+    theme(
+      axis.title.y = element_text(face = "bold", margin = margin(0,20,0,0), size = rel(1.5), color = 'black'),
+      axis.title.x = element_text(hjust = 0.5, face = "bold", margin = margin(20,0,0,0), size = rel(1.5), color = 'black'),
+      axis.text.x = element_text(face = 'bold', size = rel(1.0)),
+      axis.text.y = element_text(face = 'bold', size = rel(1.0)),
+      plot.title = element_text(hjust = 0.5)
+    )
+  
+  return(myvolcanoplot)
 }
 
 ## Venn Diagram of any number of sets to be drawn here
@@ -342,7 +323,7 @@ oraFunc <- function (gene_list, background, ONT = "ALL") {
 
 ## KEGG and Reactome Pathway analyses
 ## KEGG
-pathway_ont <- function(gene_list, mode = "gse"){
+pathway_ont <- function(gene_list){
     kk <- gseKEGG(geneList = gene_list,
                   keyType = 'ncbi-geneid',
                   organism = 'dre',
