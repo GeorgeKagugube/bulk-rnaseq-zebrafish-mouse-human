@@ -170,8 +170,8 @@ volcanoPlot <- function(df, noGenes, xlimlimit = c(-8, 8), ylimlimit = c(0, 25))
     geom_vline(xintercept = c(-0.5, 0.5), col = "gray", linetype = 'dashed') +
     geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
     geom_point(size = 3) + 
-    scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), # to set the colours of our variable  
-                       labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
+    scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"))+#, # to set the colours of our variable  
+                      # labels = c("Downregulated", "Not significant", "Upregulated")) + # to set the labels in case we want to overwrite the categories from the dataframe (UP, DOWN, NO)
     coord_cartesian(ylim = ylimlimit, xlim = xlimlimit) + # since some genes can have minuslog10padj of inf, we set these limits
     labs(color = 'Severe', #legend_title, 
          x = expression("Log"[2]*"FC"), y = expression("-log"[10]*"p-value")) + 
